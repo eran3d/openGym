@@ -27,6 +27,8 @@ const USER_ERROR = {
   // The specific reason rides beside it (`reason`), for the app to translate.
   attachments: 'the Coach cannot take that attachment'
 };
+// Jobs this server runs beyond plan, review and debrief (GET /api/coach/status `features`).
+export const COACH_FEATURES = Object.freeze(['import']);
 const HTTP_FOR = { off: 503, busy: 409, cap: 429, consent: 403, shared: 409, unprivileged: 503, attachments: 400 };
 
 export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
@@ -70,8 +72,11 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
       // admin raising or lowering the limit reaches an open chat within one poll cycle.
       // `attachments` likewise: switching to a provider that cannot read files takes the attach
       // button away from an open chat on the next poll.
+      // `features` names the jobs a client may offer beyond the ones every server has had (plan,
+      // review, debrief), so an app talking to an older server does not show an import it would
+      // refuse.
       const cfg = cfgStore.load();
-      json(res, 200, { ...jobs.status(user.id), maxMessageLen: cfg.maxMessageLen, attachments: jobs.attachmentsFor(cfg) });
+      json(res, 200, { ...jobs.status(user.id), maxMessageLen: cfg.maxMessageLen, attachments: jobs.attachmentsFor(cfg), features: COACH_FEATURES });
     },
 
     'POST /api/coach/plan': async (req, res) => {
@@ -79,6 +84,19 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
       // The one route with a larger body: it may carry files (attachments.js PLAN_BODY_LIMIT).
       const body = await readBody(req, { limit: PLAN_BODY_LIMIT });
       try {
+        // `mode: "import"` copies a program document into the library as written instead of
+        // building a plan for this person (docs/dev/coach-import.md). A mode on this route rather
+        // than a route of its own, so the one large-body path stays one path: here, in nginx and
+        // in whatever proxy sits in front.
+        if (body.mode === 'import') {
+          const job = jobs.enqueue(user.id, {
+            kind: 'import',
+            lang: body.lang,
+            note: body.note ? String(body.note).slice(0, cfgStore.MAX_MESSAGE_LEN_CEILING) : null,
+            attachments: body.attachments
+          });
+          return json(res, 202, { job });
+        }
         // The admin's configured length is the real limit; jobs.enqueue is where it is actually
         // enforced (it is the one place that already loads config for every job). This slice is
         // only a sanity ceiling so an oversized string is not carried further than it has to be.

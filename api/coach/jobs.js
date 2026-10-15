@@ -242,14 +242,19 @@ export function enqueue(uid, opts) {
   }
 
   // Before the cap is bumped: a file the provider cannot read, or one over the limits, is the
-  // client's mistake and must not cost a run. Only a plan request reads attachments.
+  // client's mistake and must not cost a run. Only a plan request and an import read attachments.
   let attachments = [];
   if (opts.attachments != null) {
-    const checked = opts.kind === 'create'
+    const checked = opts.kind === 'create' || opts.kind === 'import'
       ? checkAttachments(opts.attachments, attachmentsFor())
       : { ok: false, reason: 'unsupported', status: 400 };
     if (!checked.ok) throw new CoachError('attachments', `attachment refused: ${checked.reason}`, { reason: checked.reason, status: checked.status });
     attachments = checked.value;
+  }
+  // An import copies a document; with no file and no words there is nothing to copy, and a run
+  // that can only fail must not cost one.
+  if (opts.kind === 'import' && !attachments.length && !String(opts.note || '').trim()) {
+    throw new CoachError('attachments', 'attachment refused: missing', { reason: 'missing', status: 400 });
   }
 
   const caps = cfgStore.load().caps || {};
@@ -267,7 +272,7 @@ export function enqueue(uid, opts) {
     id: crypto.randomBytes(8).toString('hex'),
     uid,
     forgetSeq: forgetSeq.get(uid) || 0,
-    kind: opts.kind,                                  // 'create' | 'review' | 'debrief'
+    kind: opts.kind,                                  // 'create' | 'import' | 'review' | 'debrief'
     trigger: opts.trigger || 'manual',                // 'manual' | 'scheduled'
     workoutId: opts.workoutId ? String(opts.workoutId).slice(0, 40) : null,
     intake: opts.intake || null,
@@ -319,7 +324,13 @@ function finish(job, result) {
   // job still ran and still spent, which is why the instance log above keeps its line.
   if ((forgetSeq.get(job.uid) || 0) !== job.forgetSeq) return;
   const rec = readUser(job.uid);
-  const history = [...(rec.history || []), {
+  // An imported program waiting to be saved that this result takes the place of (a new answer,
+  // or "nothing to change") is recorded as turned down, as resolvePending records a Discard:
+  // a client that sent a message without asking first must not make it vanish without a trace.
+  const replaced = result.pending !== undefined && rec.pending?.kind === 'import' && rec.pending.id !== result.pending?.id
+    ? [{ id: rec.pending.id, kind: 'import', outcome: 'dismissed', accepted: 0, rejected: 0, at: Date.now() }]
+    : [];
+  const history = [...(rec.history || []), ...replaced, {
     id: job.id, kind: job.kind, trigger: job.trigger, outcome: result.outcome,
     errorClass: result.errorClass || null, at: Date.now(),
     // "Nothing to change" is an answer with a reason attached, and throwing the reason away
@@ -364,7 +375,9 @@ async function execute(job) {
     return finish(job, { outcome: 'failed', errorClass: 'noworkout' });
   }
 
-  const pendingCreate = job.refine ? readUser(job.uid).pending : null;
+  // Only a plan is refined: an import or a review waiting has no plan in it to revise.
+  const waiting = job.refine ? readUser(job.uid).pending : null;
+  const pendingCreate = waiting && waiting.kind === 'create' ? waiting : null;
   const payload = payloadLib.build(S, {
     handle: handleFor(job.uid),
     kind: job.kind,
@@ -421,7 +434,7 @@ async function execute(job) {
       createdAt: Date.now(),
       expiresAt: Date.now() + PENDING_DAYS * 86400000,
       planHash: hashPlan(payloadLib.canonicalPlan(S)),
-      iteration: job.refine ? (pendingCreate?.iteration || 1) + 1 : 1,
+      iteration: pendingCreate ? (pendingCreate.iteration || 1) + 1 : 1,
       // A debrief names the session it read, so the card can show it after the fact.
       ...(job.kind === 'debrief' ? { workout: payloadLib.workoutMeta(S, job.workoutId) } : {}),
       ...attempt.result

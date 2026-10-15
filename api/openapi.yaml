@@ -2501,6 +2501,13 @@ paths:
         words of the person reading it. The answer is 202 and a job id; the result
         arrives through `GET /api/coach/status`.
 
+        With `mode: import` it queues an `import` job instead: the attached program document
+        (or the program described in `note`) is copied as written, one routine per session,
+        with no week and nothing adapted to the profile. Its proposal has `kind: import` and a
+        `bundle` without `week`; the client files the routines in a folder named after the
+        program (docs/dev/coach-import.md). `intake` and `refine` are ignored in this mode, and
+        an import with neither a file nor a note is refused with `reason: missing`.
+
         Either can carry `attachments`: a PDF or a photo of a plan the person already has,
         which the provider's model reads itself. What this instance accepts is in
         `GET /api/coach/status` (`attachments`, null when the provider cannot read files).
@@ -2513,6 +2520,18 @@ paths:
             schema:
               type: object
               properties:
+                mode:
+                  type: string
+                  enum: [import]
+                  description: |
+                    `import` copies a program document into the library as written instead of
+                    building a plan. Absent, the request is a plan request.
+                note:
+                  type: string
+                  maxLength: 4000
+                  description: |
+                    Import mode only: what the program is called, or which part of the document
+                    to take. Cut to the instance's `maxMessageLen`.
                 intake:
                   $ref: '#/components/schemas/CoachIntake'
                 refine:
@@ -3088,7 +3107,7 @@ components:
                 properties:
                   error: { type: string }
                   code: { type: string, enum: [attachments] }
-                  reason: { type: string, enum: [unsupported, malformed, count, type, pages, size, total] }
+                  reason: { type: string, enum: [unsupported, malformed, count, type, pages, size, total, missing] }
               - $ref: '#/components/schemas/Error'
           example: { error: the Coach cannot take that attachment, code: attachments, reason: type }
     TooManyRequests:
@@ -3759,7 +3778,7 @@ components:
             - type: object
               properties:
                 id: { type: string }
-                kind: { type: string, enum: [create, review, debrief] }
+                kind: { type: string, enum: [create, import, review, debrief] }
                 state: { type: string, enum: [queued, running] }
                 startedAt: { type: integer, description: Epoch ms. }
             - type: 'null'
@@ -3784,13 +3803,19 @@ components:
             What a plan request may carry as attachments, or null when the configured provider
             cannot read files (or the admin switched them off). Rides on the poll like
             `maxMessageLen`, so switching provider takes the attach button away from an open chat.
+        features:
+          type: array
+          items: { type: string, enum: [import] }
+          description: |
+            Jobs this server runs beyond plan, review and debrief. `import`: `POST /api/coach/plan`
+            with `mode: import`. A client offers a feature only when it is listed here.
         last:
           oneOf:
             - type: object
               description: How the most recent job ended, so the chat can say so in the Coach's own voice.
               properties:
                 id: { type: string }
-                kind: { type: string, enum: [create, review, debrief] }
+                kind: { type: string, enum: [create, import, review, debrief] }
                 outcome: { type: string, enum: [ready, nochange, applied, dismissed, expired, failed] }
                 errorClass:
                   oneOf: [{ type: string }, { type: 'null' }]
@@ -3804,11 +3829,11 @@ components:
       description: |
         The answer waiting for a decision, from whichever kind of job produced it. It
         expires 14 days after it was made; the first status poll after that retires it.
-        `changes` comes from a review, `bundle` from a plan, `score`/`highlights` from a
-        debrief. One of the three, never more.
+        `changes` comes from a review, `bundle` from a plan or an import, `score`/`highlights`
+        from a debrief. One of the three, never more.
       properties:
         id: { type: string, description: The job's id. }
-        kind: { type: string, enum: [create, review, debrief] }
+        kind: { type: string, enum: [create, import, review, debrief] }
         createdAt: { type: integer, description: Epoch ms. }
         expiresAt: { type: integer, description: Epoch ms. }
         planHash: { type: string, description: The plan this was written against. A later edit makes it stale. }
@@ -3842,10 +3867,14 @@ components:
           items: { type: string }
         bundle:
           type: object
-          description: A whole plan, from a `create` job (routines, week and any custom exercises).
+          description: |
+            A whole plan, from a `create` job (routines, week and any custom exercises), or a
+            program from an `import` job: no `week`, up to 14 routines, each with `note` (its
+            description, at most 1000 characters) and exercises that may carry `restSec`,
+            `warmupSets`, `lastToFailure` and `note` (at most 500), never `weight`.
           properties:
             opengym_plan: { type: integer, const: 1 }
-            name: { type: string, maxLength: 40 }
+            name: { type: string, maxLength: 60, description: 40 for a plan, 60 for an imported program. }
             summary: { type: string }
             basedOn: { type: string }
             week: { type: object }

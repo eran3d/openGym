@@ -4,6 +4,11 @@ import { isAssisted, isBodyweightEq, isCardio } from './exercises.js'
 import { sessionsFor } from './progression.js'
 import { isWarmupRow } from './workout-model.js'
 
+/** A routine's own description (docs/dev/coach-import.md): what the session is for, how it
+ *  changes over a program's weeks. Free text, trimmed, at most this long, absent when empty. */
+export const ROUTINE_NOTE_MAX = 1000
+export const cleanRoutineNote = v => (typeof v === 'string' ? v.trim().slice(0, ROUTINE_NOTE_MAX) : '')
+
 /**
  * Create a deep copy of a routine with a new id and a "(Copy)" suffix.
  * All exercises and their configuration are preserved independently.

@@ -481,21 +481,13 @@ export function workoutMeta(S, workoutId) {
  */
 export function build(S, opts = {}) {
   if (typeof opts.handle !== 'string' || !opts.handle) throw new Error('payload.build: opts.handle is required');
+  if (opts.kind === 'import') return buildImport(S, opts);
   const coach = S.coach || {};
   const profile = opts.intake || coach.profile || null;
   const p = {
     coach_contract: CONTRACT,
     task: opts.kind === 'review' ? 'review' : opts.kind === 'debrief' ? 'debrief' : 'create',
-    meta: {
-      profile: opts.handle,
-      // Both are short codes in any real state; cut anyway, since the state is the client's.
-      // `opts.lang` is the language the app is showing when it asked: a profile that never
-      // picked one has it worked out per device and never stored (#303).
-      lang: langTag(opts.lang) || word(S.lang, 16) || 'en',
-      unit: word(S.unit, 8) || 'kg',
-      effortScale: effortOf(S),
-      today: iso(new Date())
-    },
+    meta: metaOf(S, opts),
     coachProfile: profile && typeof profile === 'object' ? cleanProfile(profile) : null,
     plan: cleanPlan(S)
   };
@@ -582,13 +574,54 @@ export function build(S, opts = {}) {
   // Files attached to this request (a PDF or a photo of a plan). Their content travels beside
   // the payload, as the provider's own document/image parts; this only tells the model they are
   // there and what they are called. Names and types, never bytes.
-  if (opts.kind === 'create' && Array.isArray(opts.attachments) && opts.attachments.length) {
-    p.attachments = opts.attachments.slice(0, 5).map(a => ({ name: text(a && a.name, NAME_MAX), mediaType: word(a && a.mediaType, 40) }));
-  }
+  if (opts.kind === 'create') attachmentsInto(p, opts.attachments);
   if (opts.kind !== 'debrief') {
     const said = conversation(coach, [opts.note, opts.refine]);
     if (said.length) p.conversation = said;
   }
+  return p;
+}
+
+function metaOf(S, opts) {
+  return {
+    profile: opts.handle,
+    // Both are short codes in any real state; cut anyway, since the state is the client's.
+    // `opts.lang` is the language the app is showing when it asked: a profile that never
+    // picked one has it worked out per device and never stored (#303).
+    lang: langTag(opts.lang) || word(S.lang, 16) || 'en',
+    unit: word(S.unit, 8) || 'kg',
+    effortScale: effortOf(S),
+    today: iso(new Date())
+  };
+}
+
+function attachmentsInto(p, attachments) {
+  if (Array.isArray(attachments) && attachments.length) {
+    p.attachments = attachments.slice(0, 5).map(a => ({ name: text(a && a.name, NAME_MAX), mediaType: word(a && a.mediaType, 40) }));
+  }
+}
+
+/* ---------- an import: a program document, copied as written ----------
+   The library and the document, and nothing about the person beyond the language and the unit:
+   no profile, no plan, no history, no conversation (docs/dev/coach-import.md). A payload that
+   could see "three days, dumbbells only" would get an import adapted to it, which is the plan
+   request's job, not this one's. The library is wider than a plan's and not filtered by
+   equipment, because the program decides what it uses. */
+// 2,000 of the catalogue's lifts (stretches left out), classic exercises first: about 127k
+// characters, roughly 35-40k input tokens, once per import. At 300 a typical program's leg press,
+// seated cable row or incline dumbbell press was not in sight, and at 1,500 a barbell hip thrust
+// still was not; the model then settles for a near miss or a custom exercise. An import is a
+// one-off, so the wider slice is worth its cost, and it stays under half of MAX_PAYLOAD_CHARS.
+export const IMPORT_LIBRARY = 2000;
+function buildImport(S, opts) {
+  const p = {
+    coach_contract: CONTRACT,
+    task: 'import',
+    meta: metaOf(S, opts),
+    library: librarySlice(S, null, { keep: trainedIds(S, S.workouts || []), max: IMPORT_LIBRARY })
+  };
+  if (opts.note) p.userNote = String(opts.note).slice(0, MAX_NOTE_CHARS);
+  attachmentsInto(p, opts.attachments);
   return p;
 }
 

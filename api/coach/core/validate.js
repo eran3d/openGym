@@ -14,7 +14,7 @@
  * model verbatim for the one repair round (FR-48) — and a list of six problems produces a
  * better second attempt than the first of them does.
  */
-import { libraryHas, libraryName, equipmentAllows } from './library.js';
+import { LIBRARY, libraryHas, libraryName, equipmentAllows } from './library.js';
 
 // A catalogue exercise the person's equipment does not reach, and that was not in the library
 // slice they were offered (which already pins what they train). The prompt says "their
@@ -228,6 +228,233 @@ export function validatePlan(data, ctx = {}) {
       summary: clampStr(data.summary || '', 1200),
       basedOn: clampStr(data.basedOn || '', 400),
       week, routines, customEx
+    }
+  };
+}
+
+/* =============================== imported programs =============================== */
+
+// docs/dev/coach-import.md. A six-day program is six routines, and a program with an A and a B
+// week twelve; 14 leaves room for that and none for a model walking the library.
+export const MAX_IMPORT_ROUTINES = 14;
+// What one answer can carry inside the provider's output budget (MAX_OUTPUT_TOKENS, 16k): an
+// exercise is about 45 tokens before its note and a short note about 50 more, so 100 of them with
+// fourteen descriptions stays near 12k. Fourteen routines of twenty would not fit, and an answer
+// cut off half-way cannot be parsed at all.
+export const MAX_IMPORT_EXERCISES = 100;
+// The routine's own description (routines[].note in the app, frontend/src/lib/routines.js).
+export const ROUTINE_NOTE_MAX = 1000;
+// The app's own limit for an exercise's note (sheets.jsx, the exercise config sheet).
+export const EX_NOTE_MAX = 500;
+// The app's planned warm-up sets (frontend MAX_PLANNED_WARMUPS) and a rest no program writes past.
+const MAX_WARMUPS = 5;
+const MAX_REST_SEC = 900;
+const PROGRAM_NAME_MAX = 60;
+const PROGRAM_DESC_MAX = 1200;
+
+// A custom exercise the model added for a movement the catalogue does have: the library slice it
+// saw is a part of 5,000+, and a program names its lifts the way gyms do ("Seated Cable Row"),
+// not the way the catalogue does ("cable seated row"). `catalogueMatch` maps such a name onto the
+// catalogue, and only when the answer is clear:
+//   1. the whole name, case and spacing aside;
+//   2. one of the few gym names the catalogue words differently (CATALOGUE_ALIASES);
+//   3. the same words in another order, and only one catalogue entry with them: "Seated Cable Row"
+//      is "cable seated row", "Incline DB Press" is "dumbbell incline bench press" (equipment
+//      words read as one word each, "bench" and numbers not counted). The equipment words have to
+//      be the same on both sides, so "Lateral Raise" never becomes a cable or a band raise, and a
+//      name with a word the catalogue entry lacks, or the other way round, stays custom.
+const nameKey = n => String(n || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const CATALOGUE_ALIASES = { 'leg press': 'sled 45° leg press' };
+// Equipment words, each with the one word it counts as, and the catalogue `eq` values it allows.
+const EQUIPMENT_WORDS = {
+  barbell: 'barbell', bb: 'barbell', dumbbell: 'dumbbell', db: 'dumbbell', cable: 'cable',
+  kettlebell: 'kettlebell', band: 'band', resistance: 'band', smith: 'smith', lever: 'machine',
+  machine: 'machine', sled: 'machine', ez: 'ez', landmine: 'landmine', trap: 'trap', bodyweight: 'bodyweight'
+};
+const EQUIPMENT_EQ = {
+  barbell: ['barbell'], dumbbell: ['dumbbell'], cable: ['cable'], kettlebell: ['kettlebell'],
+  band: ['band', 'resistance band'], smith: ['smith machine'], machine: ['leverage machine', 'sled machine'],
+  ez: ['ez barbell'], landmine: ['landmine', 'barbell'], trap: ['trap bar'], bodyweight: ['body weight']
+};
+const equipmentOf = words => [...new Set(words.filter(w => EQUIPMENT_EQ[w]))].sort().join(' ');
+const NEUTRAL = new Set(['bench']);
+const STOP = new Set(['the', 'a', 'an', 'with', 'on', 'of', 'and', 'to', 'in', 'for']);
+const wordsOf = n => String(n || '').toLowerCase()
+  // A bracket that only says how it was filmed or for whom is not part of the movement.
+  .replace(/\((?:[^)]*\bpov\b[^)]*|male|female|version \d+)\)/g, ' ')
+  .replace(/pull[\s-]?downs?/g, 'pulldown').replace(/pull[\s-]?ups?/g, 'pullup').replace(/push[\s-]?downs?/g, 'pushdown')
+  .replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
+  .filter(w => w && !STOP.has(w))
+  // "raises", "thrusts", "rows": one plural rule, applied to both sides alike.
+  .map(w => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w))
+  .map(w => EQUIPMENT_WORDS[w] || w);
+let BY_NAME = null;
+let INDEX = null;
+function catalogueIndex() {
+  if (!INDEX) {
+    BY_NAME = new Map();
+    INDEX = [];
+    const seen = new Set();
+    for (const e of LIBRARY) {
+      if (!BY_NAME.has(nameKey(e.n))) BY_NAME.set(nameKey(e.n), e.id);
+      if (/\bstretch|\(female\)|\bv\.\s*\d/i.test(e.n)) continue;
+      // Variants that differ only in how they were filmed ("(side pov)") are one movement: the
+      // first stands for it. Any other bracket ("(with arm blaster)") is a word like the rest.
+      const words = [...new Set(wordsOf(e.n))];
+      const key = e.eq + '|' + [...words].sort().join(' ');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      INDEX.push({ id: e.id, eq: e.eq, words: new Set(words), equipment: equipmentOf(words) });
+    }
+  }
+  return INDEX;
+}
+export function catalogueMatch(name) {
+  const index = catalogueIndex();
+  const exact = BY_NAME.get(nameKey(name));
+  if (exact) return exact;
+  const alias = CATALOGUE_ALIASES[nameKey(name)];
+  if (alias) return BY_NAME.get(alias) || null;
+  const words = [...new Set(wordsOf(name))];
+  if (!words.length) return null;
+  const equipment = equipmentOf(words);
+  const allowed = equipment ? equipment.split(' ').flatMap(w => EQUIPMENT_EQ[w] || []) : null;
+  const scored = [];
+  for (const c of index) {
+    if (c.equipment !== equipment || !words.every(w => c.words.has(w))) continue;
+    if (allowed && !allowed.includes(c.eq)) continue;
+    if ([...c.words].some(w => !words.includes(w) && !NEUTRAL.has(w) && !/^\d+$/.test(w))) continue;
+    scored.push(c.id);
+  }
+  return scored.length === 1 ? scored[0] : null;
+}
+
+/**
+ * Validate an import answer into a bundle `applyImport` (frontend/src/lib/coach.js) consumes.
+ * The same gate as a created plan for everything the two share (library ids, modes, ranges,
+ * per-side reps, one entry per exercise), and none of a plan's rules about the person: no week,
+ * no days per week, no equipment, no working-weight cap, because there are no loads at all.
+ * Returns { ok, bundle } or { ok:false, errors }.
+ */
+export function validateImport(data, ctx = {}) {
+  const errors = [];
+  if (!data || typeof data !== 'object') return fail(['the answer was not an object']);
+  if (!isStr(data.programName)) errors.push('programName is required: the title of the program in the document');
+  if (!Array.isArray(data.routines) || !data.routines.length) {
+    errors.push(Array.isArray(data.changes)
+      ? 'this task needs the program as routines (every session with its ex), not a list of changes'
+      : 'routines must be a non-empty array, one routine per session of the program');
+  } else if (data.routines.length > MAX_IMPORT_ROUTINES) {
+    errors.push(`the program has ${data.routines.length} routines, more than the ${MAX_IMPORT_ROUTINES} an import can hold: import the first block of the program and describe the rest in description`);
+  } else {
+    const total = data.routines.reduce((n, r) => n + (Array.isArray(r?.ex) ? r.ex.length : 0), 0);
+    if (total > MAX_IMPORT_EXERCISES) errors.push(`the program has ${total} exercises in all, more than the ${MAX_IMPORT_EXERCISES} an import can hold: import the first block of the program and describe the rest in description`);
+  }
+
+  (Array.isArray(data.customEx) ? data.customEx : []).forEach((c, i) => {
+    if (c && isStr(c.id) && libraryHas(c.id)) errors.push(`customEx[${i}].id "${c.id}" is already a library exercise id: give your own exercises their own ids`);
+  });
+  const remap = new Map();
+  const customEx = [];
+  (Array.isArray(data.customEx) ? data.customEx : [])
+    .filter(c => c && safeId(c.id) && !libraryHas(c.id) && isStr(c.n))
+    .slice(0, 20)
+    .forEach(c => {
+      const id = clampStr(c.id, 40);
+      const same = catalogueMatch(c.n);
+      if (same) { remap.set(id, same); return; }
+      customEx.push({ id, n: clampStr(c.n, 60), bp: clampStr(c.bp || 'waist', 30), ...(c.desc ? { desc: clampStr(c.desc, 400) } : {}) });
+    });
+  const proposedIds = new Set([...customEx.map(c => c.id), ...(ctx.customIds || [])]);
+
+  const routines = [];
+  (Array.isArray(data.routines) ? data.routines : []).slice(0, MAX_IMPORT_ROUTINES).forEach((r, ri) => {
+    if (!r || typeof r !== 'object') { errors.push(`routines[${ri}] is not an object`); return; }
+    if (!isStr(r.name)) errors.push(`routines[${ri}].name is required`);
+    if (r.prog != null && !POLICIES.includes(r.prog)) errors.push(`routines[${ri}].prog "${r.prog}" is not one of ${POLICIES.join(', ')}`);
+    const ex = [];
+    // Never cut silently: a session past the limit would arrive with its last exercises missing.
+    if (Array.isArray(r.ex) && r.ex.length > MAX_EX_PER_ROUTINE) {
+      errors.push(`routines[${ri}] has ${r.ex.length} exercises, more than the ${MAX_EX_PER_ROUTINE} a routine can hold: put warm-up drills or optional extras in the routine's description instead`);
+    }
+    (Array.isArray(r.ex) ? r.ex : []).slice(0, MAX_EX_PER_ROUTINE).forEach((e, ei) => {
+      const where = `routines[${ri}].ex[${ei}]`;
+      if (!e || !isStr(e.id)) { errors.push(`${where}.id is required`); return; }
+      const id = remap.get(e.id) || e.id;
+      if (!libraryHas(id) && !proposedIds.has(id)) {
+        errors.push(`${where}.id "${e.id}" is not in the exercise library and is not one of your own customEx entries: use an id from the library provided in the payload, or add a customEx entry for it`);
+        return;
+      }
+      const clean = { id, sets: isInt(e.sets, 1, 10) ? e.sets : 3 };
+      const mode = MODES.includes(e.mode) ? e.mode : 'reps';
+      const perSide = !!e.side;
+      if (mode === 'cardio') {
+        clean.mode = 'cardio';
+        clean.min = isInt(e.min, 1, 180) ? e.min : 20;
+        if (isNum(e.speed) && e.speed > 0 && e.speed <= MAX_SPEED) clean.speed = e.speed;
+      } else if (mode === 'time') {
+        clean.mode = 'time';
+        clean.sec = isInt(e.sec, 5, 3600) ? e.sec : 45;
+      } else {
+        clean.mode = 'reps';
+        clean.reps = isInt(e.reps, 1, 100) ? e.reps : 10;
+        if (perSide && clean.reps % 2) { errors.push(ODD_PER_SIDE(`${where}.reps`)); return; }
+        if (isInt(e.repsMin, 1, 100)) {
+          if (e.repsMin > clean.reps) { errors.push(`${where} has repsMin ${e.repsMin} above reps ${clean.reps}: a range is repsMin (the bottom) to reps (the top)`); return; }
+          if (e.repsMin < clean.reps) clean.repsMin = e.repsMin;
+        }
+        if (isInt(e.repsMax, 1, 100)) clean.repsMax = e.repsMax;
+        if (isInt(e.setsMax, 1, 10)) clean.setsMax = e.setsMax;
+        if (clean.repsMax != null && clean.repsMin != null && clean.repsMax < clean.repsMin) {
+          errors.push(INVERTED_RANGE(where)); return;
+        }
+      }
+      if (e.prog != null) {
+        if (!POLICIES.includes(e.prog)) errors.push(`${where}.prog "${e.prog}" is not one of ${POLICIES.join(', ')}`);
+        else clean.prog = e.prog;
+      }
+      if (isNum(e.inc) && e.inc > 0 && e.inc <= MAX_INC) clean.inc = e.inc;
+      // No `weight`, ever: there is no history to start from, and a percentage is not a load.
+      if (isInt(e.restSec, 5, MAX_REST_SEC)) clean.restSec = e.restSec;
+      if (isInt(e.warmupSets, 1, MAX_WARMUPS)) clean.warmupSets = e.warmupSets;
+      if (e.lastToFailure === true && mode !== 'cardio') clean.lastToFailure = true;
+      if (e.bodyweight != null) clean.bodyweight = !!e.bodyweight;
+      if (perSide) clean.side = true;
+      if (isStr(e.sg)) clean.sg = clampStr(e.sg, 20);
+      if (isStr(e.note)) clean.note = clampStr(e.note.trim(), EX_NOTE_MAX);
+      if (ex.some(x => x.id === clean.id)) {
+        errors.push(`${where}.id "${e.id}" appears twice in "${r.name || ri}": list each exercise once and put the second scheme in its note`);
+        return;
+      }
+      ex.push(clean);
+    });
+    if (!ex.length) errors.push(`routines[${ri}] has no valid exercises`);
+    const rid = safeId(r.id) ? clampStr(r.id, 40) : 'r' + ri;
+    if (routines.some(x => x.id === rid)) {
+      errors.push(`routines[${ri}].id "${rid}" is already used by another routine in this program`);
+      return;
+    }
+    routines.push({
+      id: rid,
+      name: clampStr(r.name || 'Routine', 40),
+      emoji: glyphStr(r.emoji),
+      ...(POLICIES.includes(r.prog) ? { prog: r.prog } : {}),
+      ...(isStr(r.description) ? { note: clampStr(r.description.trim(), ROUTINE_NOTE_MAX) } : {}),
+      ex
+    });
+  });
+
+  if (errors.length) return fail(errors);
+  // Only the custom exercises a routine uses: one remapped or never referenced is noise.
+  const used = new Set(routines.flatMap(r => r.ex.map(e => e.id)));
+  return {
+    ok: true,
+    bundle: {
+      opengym_plan: 1,
+      name: clampStr(data.programName.trim(), PROGRAM_NAME_MAX),
+      summary: clampStr(isStr(data.description) ? data.description.trim() : '', PROGRAM_DESC_MAX),
+      routines,
+      customEx: customEx.filter(c => used.has(c.id))
     }
   };
 }

@@ -69,6 +69,9 @@ export const requestPlan = (...a) => _requestPlan(...a).then(track)
 // status; the demo and a phone with its own key list none, so they never get any to pass on.
 const _refinePlan = async (text, attachments) => DEMO ? (await demo()).demoRefine(S()) : LOCAL() ? (await local()).localRefine(S(), text) : api('/api/coach/plan', { method: 'POST', body: JSON.stringify({ refine: text, lang: getLang(), ...(attachments?.length ? { attachments: attachments.map(({ name, mediaType, data }) => ({ name, mediaType, data })) } : {}) }) })
 export const refinePlan = (...a) => _refinePlan(...a).then(track)
+// A program document copied into the library as written (docs/dev/coach-import.md). Only a server
+// takes it: it needs the files, and the demo and a phone with its own key take none.
+export const importProgram = (note, attachments) => api('/api/coach/plan', { method: 'POST', body: JSON.stringify({ mode: 'import', note: note || '', lang: getLang(), ...(attachments?.length ? { attachments: attachments.map(({ name, mediaType, data }) => ({ name, mediaType, data })) } : {}) }) }).then(track)
 const _requestDebrief = async workoutId => DEMO ? (await demo()).demoDebrief(S(), workoutId) : LOCAL() ? (await local()).localDebrief(S(), workoutId) : api('/api/coach/debrief', { method: 'POST', body: JSON.stringify({ workoutId: workoutId || null, lang: getLang() }) })
 export const requestDebrief = (...a) => _requestDebrief(...a).then(track)
 // The room: anonymous medians across the profiles on this instance that opted in. Only a
