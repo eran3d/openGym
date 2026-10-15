@@ -14,7 +14,7 @@
  * model verbatim for the one repair round (FR-48) — and a list of six problems produces a
  * better second attempt than the first of them does.
  */
-import { libraryHas, libraryName, equipmentAllows } from './library.js';
+import { LIBRARY, libraryHas, libraryName, equipmentAllows } from './library.js';
 
 // A catalogue exercise the person's equipment does not reach, and that was not in the library
 // slice they were offered (which already pins what they train). The prompt says "their
@@ -228,6 +228,157 @@ export function validatePlan(data, ctx = {}) {
       summary: clampStr(data.summary || '', 1200),
       basedOn: clampStr(data.basedOn || '', 400),
       week, routines, customEx
+    }
+  };
+}
+
+/* =============================== imported programs =============================== */
+
+// docs/dev/coach-import.md. A six-day program is six routines, and a program with an A and a B
+// week twelve; 14 leaves room for that and none for a model walking the library.
+export const MAX_IMPORT_ROUTINES = 14;
+// The routine's own description (routines[].note in the app, frontend/src/lib/routines.js).
+export const ROUTINE_NOTE_MAX = 1000;
+// The app's own limit for an exercise's note (sheets.jsx, the exercise config sheet).
+export const EX_NOTE_MAX = 500;
+// The app's planned warm-up sets (frontend MAX_PLANNED_WARMUPS) and a rest no program writes past.
+const MAX_WARMUPS = 5;
+const MAX_REST_SEC = 900;
+const PROGRAM_NAME_MAX = 60;
+const PROGRAM_DESC_MAX = 1200;
+
+// A custom exercise the model added for a movement the catalogue does have, under the catalogue's
+// own name: the library slice it saw is 300 of 5,000+, so the right answer was out of its sight.
+// Matched on the whole name only (case and spacing aside), never on a part of one.
+const nameKey = n => String(n || '').toLowerCase().replace(/\s+/g, ' ').trim();
+let CATALOGUE_BY_NAME = null;
+const catalogueIdFor = n => {
+  if (!CATALOGUE_BY_NAME) {
+    CATALOGUE_BY_NAME = new Map();
+    for (const e of LIBRARY) if (!CATALOGUE_BY_NAME.has(nameKey(e.n))) CATALOGUE_BY_NAME.set(nameKey(e.n), e.id);
+  }
+  return CATALOGUE_BY_NAME.get(nameKey(n)) || null;
+};
+
+/**
+ * Validate an import answer into a bundle `applyImport` (frontend/src/lib/coach.js) consumes.
+ * The same gate as a created plan for everything the two share (library ids, modes, ranges,
+ * per-side reps, one entry per exercise), and none of a plan's rules about the person: no week,
+ * no days per week, no equipment, no working-weight cap, because there are no loads at all.
+ * Returns { ok, bundle } or { ok:false, errors }.
+ */
+export function validateImport(data, ctx = {}) {
+  const errors = [];
+  if (!data || typeof data !== 'object') return fail(['the answer was not an object']);
+  if (!isStr(data.programName)) errors.push('programName is required: the title of the program in the document');
+  if (!Array.isArray(data.routines) || !data.routines.length) {
+    errors.push(Array.isArray(data.changes)
+      ? 'this task needs the program as routines (every session with its ex), not a list of changes'
+      : 'routines must be a non-empty array, one routine per session of the program');
+  } else if (data.routines.length > MAX_IMPORT_ROUTINES) {
+    errors.push(`the program has ${data.routines.length} routines, more than the ${MAX_IMPORT_ROUTINES} an import can hold: import the first block of the program and describe the rest in description`);
+  }
+
+  (Array.isArray(data.customEx) ? data.customEx : []).forEach((c, i) => {
+    if (c && isStr(c.id) && libraryHas(c.id)) errors.push(`customEx[${i}].id "${c.id}" is already a library exercise id: give your own exercises their own ids`);
+  });
+  const remap = new Map();
+  const customEx = [];
+  (Array.isArray(data.customEx) ? data.customEx : [])
+    .filter(c => c && safeId(c.id) && !libraryHas(c.id) && isStr(c.n))
+    .slice(0, 20)
+    .forEach(c => {
+      const id = clampStr(c.id, 40);
+      const same = catalogueIdFor(c.n);
+      if (same) { remap.set(id, same); return; }
+      customEx.push({ id, n: clampStr(c.n, 60), bp: clampStr(c.bp || 'waist', 30), ...(c.desc ? { desc: clampStr(c.desc, 400) } : {}) });
+    });
+  const proposedIds = new Set([...customEx.map(c => c.id), ...(ctx.customIds || [])]);
+
+  const routines = [];
+  (Array.isArray(data.routines) ? data.routines : []).slice(0, MAX_IMPORT_ROUTINES).forEach((r, ri) => {
+    if (!r || typeof r !== 'object') { errors.push(`routines[${ri}] is not an object`); return; }
+    if (!isStr(r.name)) errors.push(`routines[${ri}].name is required`);
+    if (r.prog != null && !POLICIES.includes(r.prog)) errors.push(`routines[${ri}].prog "${r.prog}" is not one of ${POLICIES.join(', ')}`);
+    const ex = [];
+    (Array.isArray(r.ex) ? r.ex : []).slice(0, MAX_EX_PER_ROUTINE).forEach((e, ei) => {
+      const where = `routines[${ri}].ex[${ei}]`;
+      if (!e || !isStr(e.id)) { errors.push(`${where}.id is required`); return; }
+      const id = remap.get(e.id) || e.id;
+      if (!libraryHas(id) && !proposedIds.has(id)) {
+        errors.push(`${where}.id "${e.id}" is not in the exercise library and is not one of your own customEx entries: use an id from the library provided in the payload, or add a customEx entry for it`);
+        return;
+      }
+      const clean = { id, sets: isInt(e.sets, 1, 10) ? e.sets : 3 };
+      const mode = MODES.includes(e.mode) ? e.mode : 'reps';
+      const perSide = !!e.side;
+      if (mode === 'cardio') {
+        clean.mode = 'cardio';
+        clean.min = isInt(e.min, 1, 180) ? e.min : 20;
+        if (isNum(e.speed) && e.speed > 0 && e.speed <= MAX_SPEED) clean.speed = e.speed;
+      } else if (mode === 'time') {
+        clean.mode = 'time';
+        clean.sec = isInt(e.sec, 5, 3600) ? e.sec : 45;
+      } else {
+        clean.mode = 'reps';
+        clean.reps = isInt(e.reps, 1, 100) ? e.reps : 10;
+        if (perSide && clean.reps % 2) { errors.push(ODD_PER_SIDE(`${where}.reps`)); return; }
+        if (isInt(e.repsMin, 1, 100)) {
+          if (e.repsMin > clean.reps) { errors.push(`${where} has repsMin ${e.repsMin} above reps ${clean.reps}: a range is repsMin (the bottom) to reps (the top)`); return; }
+          if (e.repsMin < clean.reps) clean.repsMin = e.repsMin;
+        }
+        if (isInt(e.repsMax, 1, 100)) clean.repsMax = e.repsMax;
+        if (isInt(e.setsMax, 1, 10)) clean.setsMax = e.setsMax;
+        if (clean.repsMax != null && clean.repsMin != null && clean.repsMax < clean.repsMin) {
+          errors.push(INVERTED_RANGE(where)); return;
+        }
+      }
+      if (e.prog != null) {
+        if (!POLICIES.includes(e.prog)) errors.push(`${where}.prog "${e.prog}" is not one of ${POLICIES.join(', ')}`);
+        else clean.prog = e.prog;
+      }
+      if (isNum(e.inc) && e.inc > 0 && e.inc <= MAX_INC) clean.inc = e.inc;
+      // No `weight`, ever: there is no history to start from, and a percentage is not a load.
+      if (isInt(e.restSec, 5, MAX_REST_SEC)) clean.restSec = e.restSec;
+      if (isInt(e.warmupSets, 1, MAX_WARMUPS)) clean.warmupSets = e.warmupSets;
+      if (e.lastToFailure === true && mode !== 'cardio') clean.lastToFailure = true;
+      if (e.bodyweight != null) clean.bodyweight = !!e.bodyweight;
+      if (perSide) clean.side = true;
+      if (isStr(e.sg)) clean.sg = clampStr(e.sg, 20);
+      if (isStr(e.note)) clean.note = clampStr(e.note.trim(), EX_NOTE_MAX);
+      if (ex.some(x => x.id === clean.id)) {
+        errors.push(`${where}.id "${e.id}" appears twice in "${r.name || ri}": list each exercise once and put the second scheme in its note`);
+        return;
+      }
+      ex.push(clean);
+    });
+    if (!ex.length) errors.push(`routines[${ri}] has no valid exercises`);
+    const rid = safeId(r.id) ? clampStr(r.id, 40) : 'r' + ri;
+    if (routines.some(x => x.id === rid)) {
+      errors.push(`routines[${ri}].id "${rid}" is already used by another routine in this program`);
+      return;
+    }
+    routines.push({
+      id: rid,
+      name: clampStr(r.name || 'Routine', 40),
+      emoji: glyphStr(r.emoji),
+      ...(POLICIES.includes(r.prog) ? { prog: r.prog } : {}),
+      ...(isStr(r.description) ? { note: clampStr(r.description.trim(), ROUTINE_NOTE_MAX) } : {}),
+      ex
+    });
+  });
+
+  if (errors.length) return fail(errors);
+  // Only the custom exercises a routine uses: one remapped or never referenced is noise.
+  const used = new Set(routines.flatMap(r => r.ex.map(e => e.id)));
+  return {
+    ok: true,
+    bundle: {
+      opengym_plan: 1,
+      name: clampStr(data.programName.trim(), PROGRAM_NAME_MAX),
+      summary: clampStr(isStr(data.description) ? data.description.trim() : '', PROGRAM_DESC_MAX),
+      routines,
+      customEx: customEx.filter(c => used.has(c.id))
     }
   };
 }

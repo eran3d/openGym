@@ -2136,10 +2136,21 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   </summary>
   <div class="ep-body">
 <p>Queues a <code>create</code> job. With <code>intake</code> it builds a plan from the answers given on the intake screen; with <code>refine</code> it reworks the proposal already waiting, in the words of the person reading it. The answer is 202 and a job id; the result arrives through <code>GET /api/coach/status</code>.</p>
+<p>With <code>mode: import</code> it queues an <code>import</code> job instead: the attached program document (or the program described in <code>note</code>) is copied as written, one routine per session, with no week and nothing adapted to the profile. Its proposal has <code>kind: import</code> and a <code>bundle</code> without <code>week</code>; the client files the routines in a folder named after the program (docs/dev/coach-import.md). <code>intake</code> and <code>refine</code> are ignored in this mode, and an import with neither a file nor a note is refused with <code>reason: missing</code>.</p>
 <p>Either can carry <code>attachments</code>: a PDF or a photo of a plan the person already has, which the provider's model reads itself. What this instance accepts is in <code>GET /api/coach/status</code> (<code>attachments</code>, null when the provider cannot read files). The files are checked before the daily cap is touched, held in memory for the one job, and never stored.</p>
     <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
 
 <p class="ep-h">Request body <span class="p-hint">(JSON)</span> <span class="p-hint">(optional)</span></p><div class="ptab">
+  <div class="prow">
+    <span class="p-name">mode</span>
+    <span class="p-type">&quot;import&quot;</span>
+    <span class="p-desc"><code>import</code> copies a program document into the library as written instead of building a plan. Absent, the request is a plan request.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">note</span>
+    <span class="p-type">string <span class="p-hint">(&le; 4000 chars)</span></span>
+    <span class="p-desc">Import mode only: what the program is called, or which part of the document to take. Cut to the instance's <code>maxMessageLen</code>.</span>
+  </div>
   <div class="prow">
     <span class="p-name">intake</span>
     <span class="p-type"><a href="#schema-CoachIntake">CoachIntake</a></span>
@@ -4656,7 +4667,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="ep-sum">The answer waiting for a decision, from whichever kind of job produced it.</span>
   </summary>
   <div class="ep-body">
-<p>It expires 14 days after it was made; the first status poll after that retires it. <code>changes</code> comes from a review, <code>bundle</code> from a plan, <code>score</code>/<code>highlights</code> from a debrief. One of the three, never more.</p>
+<p>It expires 14 days after it was made; the first status poll after that retires it. <code>changes</code> comes from a review, <code>bundle</code> from a plan or an import, <code>score</code>/<code>highlights</code> from a debrief. One of the three, never more.</p>
 <div class="ptab">
   <div class="prow">
     <span class="p-name">id</span>
@@ -4665,7 +4676,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   </div>
   <div class="prow">
     <span class="p-name">kind</span>
-    <span class="p-type">&quot;create&quot; | &quot;review&quot; | &quot;debrief&quot;</span>
+    <span class="p-type">&quot;create&quot; | &quot;import&quot; | &quot;review&quot; | &quot;debrief&quot;</span>
     <span class="p-desc"></span>
   </div>
   <div class="prow">
@@ -4751,7 +4762,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   <div class="prow">
     <span class="p-name">bundle</span>
     <span class="p-type">object</span>
-    <span class="p-desc">A whole plan, from a <code>create</code> job (routines, week and any custom exercises).</span>
+    <span class="p-desc">A whole plan, from a <code>create</code> job (routines, week and any custom exercises), or a program from an <code>import</code> job: no <code>week</code>, up to 14 routines, each with <code>note</code> (its description, at most 1000 characters) and exercises that may carry <code>restSec</code>, <code>warmupSets</code>, <code>lastToFailure</code> and <code>note</code> (at most 500), never <code>weight</code>.</span>
   </div>
   <div class="prow">
     <span class="p-name">bundle.opengym_plan</span>
@@ -4760,8 +4771,8 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   </div>
   <div class="prow">
     <span class="p-name">bundle.name</span>
-    <span class="p-type">string <span class="p-hint">(&le; 40 chars)</span></span>
-    <span class="p-desc"></span>
+    <span class="p-type">string <span class="p-hint">(&le; 60 chars)</span></span>
+    <span class="p-desc">40 for a plan</span>
   </div>
   <div class="prow">
     <span class="p-name">bundle.summary</span>

@@ -87,6 +87,41 @@ if (MODE === 'nochange' || (kind === 'review' && !(P.window?.workouts || []).len
   out({ coach_contract: 1, nochange: true, reading: 'Not enough new training to read anything into yet — keep logging and ask again in a week.' });
 }
 
+// An import (docs/dev/coach-import.md): a two-session program from the library it was given, with
+// everything an import carries that a plan does not (rest, warm-ups, notes, a description per
+// routine, a custom exercise), and the attached files echoed in the description so a test can
+// tell the document reached the provider.
+if (kind === 'import') {
+  const lib = (P.library || []).filter(e => !e.custom).slice(0, 5);
+  const ex = (i) => lib[i % Math.max(1, lib.length)] || { id: 'unknown' };
+  out({
+    coach_contract: 1,
+    opengym_import: 1,
+    programName: 'Fixture Program',
+    description: 'A two-session example program, imported as written.' + attached + (P.userNote ? ` Note: ${P.userNote}` : ''),
+    routines: [
+      {
+        id: 'r1', name: 'Session A', emoji: 'barbell', prog: 'double',
+        description: 'Heavy day. Week 1 values; add a set in week 2, deload in week 4.',
+        ex: [
+          { id: ex(0).id, sets: 3, mode: 'reps', reps: 8, repsMin: 6, restSec: 180, warmupSets: 2, note: 'RPE 8 on the last set.' },
+          { id: ex(1).id, sets: 3, mode: 'reps', reps: 12, repsMin: 10, restSec: 90, sg: 'a' },
+          { id: ex(2).id, sets: 3, mode: 'reps', reps: 12, repsMin: 10, restSec: 90, sg: 'a', lastToFailure: true }
+        ]
+      },
+      {
+        id: 'r2', name: 'Session B', emoji: 'dumbbell', prog: 'double',
+        description: 'Volume day. Same waves as Session A.',
+        ex: [
+          { id: ex(3).id, sets: 4, mode: 'reps', reps: 10, repsMin: 8, restSec: 120, note: 'About 70% of your one-rep max.' },
+          { id: 'cx1', sets: 2, mode: 'reps', reps: 15, restSec: 60, note: 'Slow on the way down.' }
+        ]
+      }
+    ],
+    customEx: [{ id: 'cx1', n: 'Fixture band pull-apart variation', bp: 'shoulders', desc: 'Pull the band apart at chest height.' }]
+  });
+}
+
 if (kind === 'create') {
   const lib = (P.library || []).slice(0, 6);
   const ex = (i) => lib[i % Math.max(1, lib.length)] || { id: 'unknown' };

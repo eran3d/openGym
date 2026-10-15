@@ -215,6 +215,24 @@ the daily caps like any other. The file is sent to the provider with that one jo
 round, held in memory only, and never stored: not in your synced state, not in the Coach's
 records, not in the job log. The chat keeps the file's name.
 
+### Importing a program as written
+
+Sometimes you do not want a plan built for you, you want the program you have in the app as it
+is: a coach's PDF, a published block. With a file picked, the composer offers **Plan for me** (the
+request above) or **Import to library**; the Coach menu has **Import a program** as well. An
+import copies every session of the document into a routine, with its sets, reps or rep range,
+rest, warm-up sets, and per exercise a note with the intensity target (RPE, RIR or a percentage
+of your one-rep max) and the technique cues. Nothing is adapted to your answers, your days or your
+equipment, and no weights are set. A program that changes week by week is imported at its week 1
+values, with how the weeks move written in each routine's description.
+
+The proposal shows the program and each session. **Save to library** puts the routines in one
+folder named after the program (Plan, Routines) and schedules nothing: you start a session from
+there when you train. Undo the last Coach changes takes the routines away again; the folder
+stays until you delete it. It is the same job as a plan request for everything else: the same
+file limits, one run against the daily caps, the file held in memory for that job only. The
+design note is [docs/dev/coach-import.md](dev/coach-import.md).
+
 ### Comparing with others on the instance
 
 Off unless the admin turns it on (**Settings → Account → Admin dashboard**, the **AI Coach** card →

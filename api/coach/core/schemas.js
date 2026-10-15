@@ -1,4 +1,4 @@
-/* JSON schemas for the three answer shapes, handed to providers that can enforce a schema
+/* JSON schemas for the four answer shapes, handed to providers that can enforce a schema
  * while decoding (Ollama/llama.cpp grammar sampling, LM Studio, vLLM, OpenAI json_schema).
  *
  * Deliberately flat: no $ref, no anyOf/oneOf, no additionalProperties tricks — llama.cpp's
@@ -98,6 +98,50 @@ export const CREATE_SCHEMA = {
   required: ['coach_contract', 'week', 'routines']
 };
 
+// An import (docs/dev/coach-import.md): no week, more routines than a plan may have (a six-day
+// program is six), and the per-exercise fields a program document prescribes that a Coach plan
+// leaves to the app: rest, warm-up sets, last set to failure, a note.
+const IMPORT_EX_SCHEMA = {
+  type: 'object',
+  properties: {
+    id: STR, sets: { type: 'integer' }, mode: STR,
+    reps: { type: 'integer' }, repsMin: { type: 'integer' }, repsMax: { type: 'integer' },
+    sec: { type: 'integer' }, min: { type: 'integer' }, speed: { type: 'number' },
+    prog: STR, inc: { type: 'number' },
+    restSec: { type: 'integer' }, warmupSets: { type: 'integer' }, lastToFailure: { type: 'boolean' },
+    bodyweight: { type: 'boolean' }, side: { type: 'boolean' },
+    sg: STR, note: STR
+  },
+  required: ['id', 'sets']
+};
+
+export const IMPORT_SCHEMA = {
+  type: 'object',
+  properties: {
+    coach_contract: { type: 'integer' },
+    opengym_import: { type: 'integer' },
+    programName: STR,
+    description: STR,
+    routines: {
+      type: 'array',
+      maxItems: 14,
+      items: {
+        type: 'object',
+        properties: {
+          id: STR, name: STR, emoji: STR, prog: STR, description: STR,
+          ex: { type: 'array', maxItems: 20, items: IMPORT_EX_SCHEMA }
+        },
+        required: ['id', 'name', 'ex']
+      }
+    },
+    customEx: {
+      type: 'array',
+      items: { type: 'object', properties: { id: STR, n: STR, bp: STR, desc: STR }, required: ['id', 'n'] }
+    }
+  },
+  required: ['coach_contract', 'programName', 'routines']
+};
+
 export const DEBRIEF_SCHEMA = {
   type: 'object',
   properties: {
@@ -111,4 +155,4 @@ export const DEBRIEF_SCHEMA = {
   required: ['coach_contract', 'summary', 'score']
 };
 
-export const SCHEMAS = { review: REVIEW_SCHEMA, create: CREATE_SCHEMA, refine: CREATE_SCHEMA, debrief: DEBRIEF_SCHEMA };
+export const SCHEMAS = { review: REVIEW_SCHEMA, create: CREATE_SCHEMA, refine: CREATE_SCHEMA, import: IMPORT_SCHEMA, debrief: DEBRIEF_SCHEMA };

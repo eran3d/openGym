@@ -79,6 +79,19 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
       // The one route with a larger body: it may carry files (attachments.js PLAN_BODY_LIMIT).
       const body = await readBody(req, { limit: PLAN_BODY_LIMIT });
       try {
+        // `mode: "import"` copies a program document into the library as written instead of
+        // building a plan for this person (docs/dev/coach-import.md). A mode on this route rather
+        // than a route of its own, so the one large-body path stays one path: here, in nginx and
+        // in whatever proxy sits in front.
+        if (body.mode === 'import') {
+          const job = jobs.enqueue(user.id, {
+            kind: 'import',
+            lang: body.lang,
+            note: body.note ? String(body.note).slice(0, cfgStore.MAX_MESSAGE_LEN_CEILING) : null,
+            attachments: body.attachments
+          });
+          return json(res, 202, { job });
+        }
         // The admin's configured length is the real limit; jobs.enqueue is where it is actually
         // enforced (it is the one place that already loads config for every job). This slice is
         // only a sanity ceiling so an oversized string is not carried further than it has to be.
