@@ -30,6 +30,7 @@ import {
 } from '../lib/coach.js'
 import { insightsFor, sessionInsights } from '../lib/coach-insights.js'
 import { useCoachStatus, requestReview, requestDebrief, requestPlan, refinePlan, resolvePending, cohortStats, setCohortShare, jobErrorText, awaitedJob, settleAwaited, JOB_ERRORS } from '../lib/coach-api.js'
+import { checkPicked, readAttachment, acceptOf, attachmentErrorText } from '../lib/coach-attachments.js'
 import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { glyphOf } from '../lib/glyphs.js'
@@ -47,8 +48,12 @@ export default function CoachChat() {
   const storeReady = useStore(s => s.ready)
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
-  const { job, pending, cap, loading, lastError, last, refresh, maxMessageLen } = useCoachStatus(true)
+  const { job, pending, cap, loading, lastError, last, refresh, maxMessageLen, attachments: attachCap } = useCoachStatus(true)
   const [text, setText] = useState('')
+  // Files picked for the next message, already read: { name, mediaType, size, data }. They live
+  // here until sent and are never written to the store, so a reload or a sync never carries them.
+  const [files, setFiles] = useState([])
+  const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const endRef = useRef(null)
   const prevJob = useRef(null)
@@ -100,23 +105,46 @@ export default function CoachChat() {
   const coach = S.coach || emptyCoach()
   const community = !!config?.coach?.community && !DEMO && !(MOBILE && coachMode === 'byok')
 
+  // Only a server that said it takes files gets the button: the demo and a phone with its own
+  // key report none, and a provider that cannot read them (Codex, a compatible endpoint) neither.
+  const canAttach = !!attachCap && !DEMO && !(MOBILE && coachMode === 'byok')
+  const pickFiles = async e => {
+    const picked = [...(e.target.files || [])]
+    e.target.value = ''
+    if (!picked.length) return
+    const ok = checkPicked(files, picked, attachCap)
+    if (!ok.ok) return toast(attachmentErrorText(ok.reason, attachCap))
+    try {
+      const read = await Promise.all(picked.map(readAttachment))
+      setFiles(f => [...f, ...read])
+    } catch { toast(attachmentErrorText('malformed')) }
+  }
+
   const send = async () => {
-    const msg = text.trim()
+    const withFiles = canAttach && files.length > 0
+    // A file with nothing typed beside it still says what it is for.
+    const msg = text.trim() || (withFiles ? t('Build my plan from the attached file.') : '')
     if (!msg || busy) return
     setBusy(true)
     try {
       // A message about a proposed plan refines it. With no plan at all — the first attempt
       // failed, or nothing was ever built — the message asks for one; a review would only
-      // answer that there is no workout to look at, which is how people got stuck.
-      if (pending?.kind === 'create' || !(S.routines || []).length) await refinePlan(msg)
+      // answer that there is no workout to look at, which is how people got stuck. A message
+      // with files is always a plan request: that is the one job that reads them.
+      if (withFiles) await refinePlan(msg, files)
+      else if (pending?.kind === 'create' || !(S.routines || []).length) await refinePlan(msg)
       else await requestReview(msg)
-      update(s => appendChat(s, { role: 'user', kind: 'text', text: msg }))
+      // The chat keeps the file names, never the files.
+      update(s => appendChat(s, { role: 'user', kind: 'text', text: msg, ...(withFiles ? { files: files.map(f => f.name) } : {}) }))
       setText('')
+      setFiles([])
       refresh()
     } catch (e) {
       // A server that refuses the job says so in English, with its class beside it: the class
       // picks the translated line. One with no line here ('shared') keeps the server's words.
-      toast(JOB_ERRORS[e.data?.code] || e.message || t('Could not ask the Coach'))
+      toast(e.data?.code === 'attachments'
+        ? attachmentErrorText(e.data.reason, attachCap)
+        : JOB_ERRORS[e.data?.code] || e.message || t('Could not ask the Coach'))
     }
     setBusy(false)
   }
@@ -219,11 +247,21 @@ export default function CoachChat() {
         {!!(S.routines || []).length && <button className="qchip" onClick={pickRoutine}><Icon name="wrench" />{t('Improve a routine')}</button>}
         {community && <button className="qchip" onClick={showCohort}><Icon name="person" />{t('Compare')}</button>}
       </div>}
+      {canAttach && files.length > 0 && <div className="chips-row attach-row">
+        {files.map((f, i) => <span key={i} className="qchip attach-chip">
+          <Icon name="paperclip" /><span className="attach-name">{f.name}</span>
+          <button className="attach-x" onClick={() => setFiles(fs => fs.filter((_, j) => j !== i))} aria-label={t('Remove {0}', f.name)}><Icon name="xmark" /></button>
+        </span>)}
+      </div>}
       <div className="composer-in">
+        {canAttach && <>
+          <input ref={fileRef} type="file" accept={acceptOf(attachCap)} multiple={attachCap.maxCount > 1} hidden onChange={pickFiles} data-testid="coach-file" />
+          <button className="attach" onClick={() => fileRef.current?.click()} disabled={busy || !!job || files.length >= attachCap.maxCount} aria-label={t('Attach a file')}><Icon name="paperclip" /></button>
+        </>}
         <textarea rows={1} value={text} maxLength={maxMessageLen || 1000} placeholder={placeholder} disabled={!!job}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} />
-        <button className="send" onClick={send} disabled={!text.trim() || busy || !!job} aria-label={t('Send')}><Icon name="arrowUp" /></button>
+        <button className="send" onClick={send} disabled={(!text.trim() && !(canAttach && files.length)) || busy || !!job} aria-label={t('Send')}><Icon name="arrowUp" /></button>
       </div>
       {cap?.limit > 0 && <div className="composer-cap">{t('{0} of {1} Coach runs used today', cap.used, cap.limit)}</div>}
     </div>
@@ -257,7 +295,12 @@ function Message({ m, S, profile, openSheet }) {
     </div>
   }
   if (m.kind === 'reverted' || m.kind === 'nochange' || m.kind === 'error' || m.kind === 'text') {
-    return <Bubble role={m.role} kind={m.kind} at={m.at}>{m.text}</Bubble>
+    return <Bubble role={m.role} kind={m.kind} at={m.at}>
+      {m.text}
+      {Array.isArray(m.files) && m.files.length > 0 && <div className="msg-files">
+        {m.files.map((n, i) => <div key={i}><Icon name="paperclip" />{String(n)}</div>)}
+      </div>}
+    </Bubble>
   }
   return null
 }

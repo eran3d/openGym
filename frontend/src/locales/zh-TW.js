@@ -2235,4 +2235,16 @@ export default {
   'Your sports watch, calling you back.': '你的運動手錶在叫你回來。',
   'Coach wants you back on the bar.': '教練等你回到槓鈴前。',
   'Gentle, for headphones or a quiet room.': '輕柔，適合耳機或安靜的房間。',
+  // --- Coach attachments ---
+  'Attach a file': '附加檔案',
+  'Build my plan from the attached file.': '根據附件幫我制定計畫。',
+  'The Coach can’t read files on this instance.': '此伺服器上的 AI 教練無法讀取檔案。',
+  'That file couldn’t be read.': '無法讀取該檔案。',
+  'The Coach reads PDFs and JPEG or PNG images.': 'AI 教練可讀取 PDF 以及 JPEG 或 PNG 圖片。',
+  'That’s more files than the Coach takes at once.': '檔案數量超過 AI 教練一次可接收的上限。',
+  'That file is too big for the Coach.': '這個檔案對 AI 教練來說太大了。',
+  'Together these files are too big for the Coach.': '這些檔案合起來對 AI 教練來說太大了。',
+  'Up to {0} MB per file.': '每個檔案最多 {0} MB。',
+  'Up to {0} MB in all.': '總共最多 {0} MB。',
+  'Up to {0} at a time.': '一次最多 {0} 個。',
 }

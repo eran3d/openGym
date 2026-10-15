@@ -2253,4 +2253,16 @@ export default {
   'Your sports watch, calling you back.': 'นาฬิกาสปอร์ตเรียกคุณกลับมาแล้ว',
   'Coach wants you back on the bar.': 'โค้ชอยากให้คุณกลับมาที่บาร์',
   'Gentle, for headphones or a quiet room.': 'เบา ๆ สำหรับหูฟังหรือห้องที่เงียบ',
+  // --- Coach attachments ---
+  'Attach a file': 'แนบไฟล์',
+  'Build my plan from the attached file.': 'สร้างแผนของฉันจากไฟล์ที่แนบมา',
+  'The Coach can’t read files on this instance.': 'โค้ชบนอินสแตนซ์นี้อ่านไฟล์ไม่ได้',
+  'That file couldn’t be read.': 'อ่านไฟล์นี้ไม่ได้',
+  'The Coach reads PDFs and JPEG or PNG images.': 'โค้ชอ่านไฟล์ PDF และรูปภาพ JPEG หรือ PNG',
+  'That’s more files than the Coach takes at once.': 'จำนวนไฟล์มากกว่าที่โค้ชรับได้ในครั้งเดียว',
+  'That file is too big for the Coach.': 'ไฟล์นี้ใหญ่เกินไปสำหรับโค้ช',
+  'Together these files are too big for the Coach.': 'ไฟล์เหล่านี้รวมกันใหญ่เกินไปสำหรับโค้ช',
+  'Up to {0} MB per file.': 'ไม่เกิน {0} MB ต่อไฟล์',
+  'Up to {0} MB in all.': 'รวมไม่เกิน {0} MB',
+  'Up to {0} at a time.': 'ไม่เกิน {0} ไฟล์ต่อครั้ง',
 }

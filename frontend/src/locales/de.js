@@ -2262,4 +2262,16 @@ export default {
   'Your sports watch, calling you back.': 'Deine Sportuhr ruft dich zurück.',
   'Coach wants you back on the bar.': 'Der Coach will dich zurück an der Stange.',
   'Gentle, for headphones or a quiet room.': 'Leise, für Kopfhörer oder einen ruhigen Raum.',
+  // --- Coach attachments ---
+  'Attach a file': 'Datei anhängen',
+  'Build my plan from the attached file.': 'Erstelle meinen Plan aus der angehängten Datei.',
+  'The Coach can’t read files on this instance.': 'Der Coach kann auf dieser Instanz keine Dateien lesen.',
+  'That file couldn’t be read.': 'Diese Datei konnte nicht gelesen werden.',
+  'The Coach reads PDFs and JPEG or PNG images.': 'Der Coach liest PDFs sowie JPEG- und PNG-Bilder.',
+  'That’s more files than the Coach takes at once.': 'Das sind mehr Dateien, als der Coach auf einmal annimmt.',
+  'That file is too big for the Coach.': 'Diese Datei ist zu groß für den Coach.',
+  'Together these files are too big for the Coach.': 'Zusammen sind diese Dateien zu groß für den Coach.',
+  'Up to {0} MB per file.': 'Bis zu {0} MB pro Datei.',
+  'Up to {0} MB in all.': 'Bis zu {0} MB insgesamt.',
+  'Up to {0} at a time.': 'Bis zu {0} auf einmal.',
 }

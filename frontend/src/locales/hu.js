@@ -2245,4 +2245,16 @@ export default {
   'Your sports watch, calling you back.': 'A sportórád visszahív.',
   'Coach wants you back on the bar.': 'Az edző visszavár a rúdhoz.',
   'Gentle, for headphones or a quiet room.': 'Halk, fülhallgatóhoz vagy csendes helyre.',
+  // --- Coach attachments ---
+  'Attach a file': 'Fájl csatolása',
+  'Build my plan from the attached file.': 'Készítsd el a tervemet a csatolt fájlból.',
+  'The Coach can’t read files on this instance.': 'Az Edző ezen a példányon nem tud fájlokat olvasni.',
+  'That file couldn’t be read.': 'Ezt a fájlt nem sikerült beolvasni.',
+  'The Coach reads PDFs and JPEG or PNG images.': 'Az Edző PDF-et és JPEG vagy PNG képeket olvas.',
+  'That’s more files than the Coach takes at once.': 'Ez több fájl, mint amennyit az Edző egyszerre elfogad.',
+  'That file is too big for the Coach.': 'Ez a fájl túl nagy az Edzőnek.',
+  'Together these files are too big for the Coach.': 'Ezek a fájlok együtt túl nagyok az Edzőnek.',
+  'Up to {0} MB per file.': 'Legfeljebb {0} MB fájlonként.',
+  'Up to {0} MB in all.': 'Összesen legfeljebb {0} MB.',
+  'Up to {0} at a time.': 'Egyszerre legfeljebb {0}.',
 }

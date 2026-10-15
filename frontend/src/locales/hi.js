@@ -2242,4 +2242,16 @@ export default {
   'Your sports watch, calling you back.': 'आपकी स्पोर्ट्स घड़ी आपको वापस बुला रही है।',
   'Coach wants you back on the bar.': 'कोच आपको बार पर वापस चाहते हैं।',
   'Gentle, for headphones or a quiet room.': 'धीमी, हेडफ़ोन या शांत कमरे के लिए।',
+  // --- Coach attachments ---
+  'Attach a file': 'फ़ाइल जोड़ें',
+  'Build my plan from the attached file.': 'जोड़ी गई फ़ाइल से मेरा प्लान बनाओ।',
+  'The Coach can’t read files on this instance.': 'इस इंस्टेंस पर कोच फ़ाइलें नहीं पढ़ सकता।',
+  'That file couldn’t be read.': 'यह फ़ाइल पढ़ी नहीं जा सकी।',
+  'The Coach reads PDFs and JPEG or PNG images.': 'कोच PDF और JPEG या PNG इमेज पढ़ता है।',
+  'That’s more files than the Coach takes at once.': 'कोच एक बार में इतनी फ़ाइलें नहीं लेता।',
+  'That file is too big for the Coach.': 'यह फ़ाइल कोच के लिए बहुत बड़ी है।',
+  'Together these files are too big for the Coach.': 'ये फ़ाइलें मिलाकर कोच के लिए बहुत बड़ी हैं।',
+  'Up to {0} MB per file.': 'हर फ़ाइल अधिकतम {0} MB।',
+  'Up to {0} MB in all.': 'कुल मिलाकर अधिकतम {0} MB।',
+  'Up to {0} at a time.': 'एक बार में अधिकतम {0}।',
 }

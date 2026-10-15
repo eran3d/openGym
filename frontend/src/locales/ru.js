@@ -2246,4 +2246,16 @@ export default {
   'Your sports watch, calling you back.': 'Ваши спортивные часы зовут вас обратно.',
   'Coach wants you back on the bar.': 'Тренер ждёт вас обратно у штанги.',
   'Gentle, for headphones or a quiet room.': 'Тихий, для наушников или спокойного зала.',
+  // --- Coach attachments ---
+  'Attach a file': 'Прикрепить файл',
+  'Build my plan from the attached file.': 'Составь мой план по прикреплённому файлу.',
+  'The Coach can’t read files on this instance.': 'Тренер не может читать файлы на этом сервере.',
+  'That file couldn’t be read.': 'Не удалось прочитать этот файл.',
+  'The Coach reads PDFs and JPEG or PNG images.': 'Тренер читает PDF и изображения JPEG или PNG.',
+  'That’s more files than the Coach takes at once.': 'Это больше файлов, чем Тренер принимает за раз.',
+  'That file is too big for the Coach.': 'Этот файл слишком большой для Тренера.',
+  'Together these files are too big for the Coach.': 'Вместе эти файлы слишком большие для Тренера.',
+  'Up to {0} MB per file.': 'До {0} МБ на файл.',
+  'Up to {0} MB in all.': 'До {0} МБ всего.',
+  'Up to {0} at a time.': 'До {0} за раз.',
 }

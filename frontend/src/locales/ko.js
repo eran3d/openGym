@@ -2242,4 +2242,16 @@ export default {
   'Your sports watch, calling you back.': '스포츠 시계가 다시 부르고 있어요.',
   'Coach wants you back on the bar.': '코치가 바 앞으로 돌아오래요.',
   'Gentle, for headphones or a quiet room.': '이어폰이나 조용한 곳에 어울려요.',
+  // --- Coach attachments ---
+  'Attach a file': '파일 첨부',
+  'Build my plan from the attached file.': '첨부한 파일로 내 플랜을 만들어 줘.',
+  'The Coach can’t read files on this instance.': '이 인스턴스의 코치는 파일을 읽을 수 없습니다.',
+  'That file couldn’t be read.': '파일을 읽을 수 없습니다.',
+  'The Coach reads PDFs and JPEG or PNG images.': '코치는 PDF와 JPEG 또는 PNG 이미지를 읽습니다.',
+  'That’s more files than the Coach takes at once.': '코치가 한 번에 받을 수 있는 파일 수를 넘었습니다.',
+  'That file is too big for the Coach.': '코치가 받기에는 파일이 너무 큽니다.',
+  'Together these files are too big for the Coach.': '파일을 합치면 코치가 받기에 너무 큽니다.',
+  'Up to {0} MB per file.': '파일당 최대 {0}MB.',
+  'Up to {0} MB in all.': '합계 최대 {0}MB.',
+  'Up to {0} at a time.': '한 번에 최대 {0}개.',
 }

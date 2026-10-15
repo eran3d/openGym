@@ -2242,4 +2242,16 @@ export default {
   'Your sports watch, calling you back.': '你的运动手表在叫你回来。',
   'Coach wants you back on the bar.': '教练等你回到杠铃前。',
   'Gentle, for headphones or a quiet room.': '轻柔，适合耳机或安静的房间。',
+  // --- Coach attachments ---
+  'Attach a file': '添加附件',
+  'Build my plan from the attached file.': '根据附件为我制定计划。',
+  'The Coach can’t read files on this instance.': '此实例上的教练无法读取文件。',
+  'That file couldn’t be read.': '无法读取该文件。',
+  'The Coach reads PDFs and JPEG or PNG images.': '教练可读取 PDF 以及 JPEG 或 PNG 图片。',
+  'That’s more files than the Coach takes at once.': '文件数量超过了教练一次能接收的上限。',
+  'That file is too big for the Coach.': '该文件对教练来说太大了。',
+  'Together these files are too big for the Coach.': '这些文件合起来对教练来说太大了。',
+  'Up to {0} MB per file.': '每个文件最多 {0} MB。',
+  'Up to {0} MB in all.': '总共最多 {0} MB。',
+  'Up to {0} at a time.': '一次最多 {0} 个。',
 }

@@ -1403,6 +1403,18 @@ export const PT_BR_OVERRIDES = {
   'Gentle, for headphones or a quiet room.': 'Suave, para fones de ouvido ou um lugar silencioso.',
   'Fewer than two workouts in this period. Pick a longer one.': 'Menos de dois treinos neste período. Escolha um mais longo.',
   'Releases are checked on GitHub. The download is verified against its checksum before the installer opens.': 'As versões são verificadas no GitHub. O download é conferido pela soma de verificação antes de abrir o instalador.',
+  // --- Coach attachments ---
+  'Attach a file': 'Anexar um arquivo',
+  'Build my plan from the attached file.': 'Monte meu plano a partir do arquivo anexado.',
+  'The Coach can’t read files on this instance.': 'O Treinador não consegue ler arquivos nesta instância.',
+  'That file couldn’t be read.': 'Não foi possível ler esse arquivo.',
+  'The Coach reads PDFs and JPEG or PNG images.': 'O Treinador lê PDF e imagens JPEG ou PNG.',
+  'That’s more files than the Coach takes at once.': 'São mais arquivos do que o Treinador aceita de uma vez.',
+  'That file is too big for the Coach.': 'Esse arquivo é grande demais para o Treinador.',
+  'Together these files are too big for the Coach.': 'Juntos, esses arquivos são grandes demais para o Treinador.',
+  'Up to {0} MB per file.': 'Até {0} MB por arquivo.',
+  'Up to {0} MB in all.': 'Até {0} MB no total.',
+  'Up to {0} at a time.': 'Até {0} por vez.',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

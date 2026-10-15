@@ -2242,4 +2242,16 @@ export default {
   'Your sports watch, calling you back.': 'Spor saatin seni geri çağırıyor.',
   'Coach wants you back on the bar.': 'Koç seni bara geri bekliyor.',
   'Gentle, for headphones or a quiet room.': 'Sakin, kulaklık ya da sessiz bir oda için.',
+  // --- Coach attachments ---
+  'Attach a file': 'Dosya ekle',
+  'Build my plan from the attached file.': 'Ekteki dosyadan planımı oluştur.',
+  'The Coach can’t read files on this instance.': 'Koç bu sunucuda dosya okuyamıyor.',
+  'That file couldn’t be read.': 'Bu dosya okunamadı.',
+  'The Coach reads PDFs and JPEG or PNG images.': 'Koç PDF ve JPEG ya da PNG görselleri okur.',
+  'That’s more files than the Coach takes at once.': 'Bu, Koç’un bir seferde aldığından fazla dosya.',
+  'That file is too big for the Coach.': 'Bu dosya Koç için çok büyük.',
+  'Together these files are too big for the Coach.': 'Bu dosyalar birlikte Koç için çok büyük.',
+  'Up to {0} MB per file.': 'Dosya başına en fazla {0} MB.',
+  'Up to {0} MB in all.': 'Toplamda en fazla {0} MB.',
+  'Up to {0} at a time.': 'Bir seferde en fazla {0}.',
 }

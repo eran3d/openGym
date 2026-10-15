@@ -2297,4 +2297,16 @@ export default {
   'Your sports watch, calling you back.': 'ساعتك الرياضية تناديك للعودة.',
   'Coach wants you back on the bar.': 'المدرب يريدك أن تعود إلى البار.',
   'Gentle, for headphones or a quiet room.': 'هادئ، للسماعات أو لغرفة هادئة.',
+  // --- Coach attachments ---
+  'Attach a file': 'إرفاق ملف',
+  'Build my plan from the attached file.': 'ابنِ خطتي من الملف المرفق.',
+  'The Coach can’t read files on this instance.': 'لا يستطيع المدرب قراءة الملفات على هذا المثيل.',
+  'That file couldn’t be read.': 'تعذّرت قراءة هذا الملف.',
+  'The Coach reads PDFs and JPEG or PNG images.': 'يقرأ المدرب ملفات PDF وصور JPEG أو PNG.',
+  'That’s more files than the Coach takes at once.': 'هذه ملفات أكثر مما يقبله المدرب دفعة واحدة.',
+  'That file is too big for the Coach.': 'هذا الملف كبير جدًا على المدرب.',
+  'Together these files are too big for the Coach.': 'هذه الملفات معًا كبيرة جدًا على المدرب.',
+  'Up to {0} MB per file.': 'حتى {0} ميغابايت لكل ملف.',
+  'Up to {0} MB in all.': 'حتى {0} ميغابايت إجمالًا.',
+  'Up to {0} at a time.': 'حتى {0} في المرة الواحدة.',
 }

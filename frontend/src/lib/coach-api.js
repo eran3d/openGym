@@ -12,6 +12,7 @@ import { MOBILE } from './mobile.js'
 import { t, getLang } from './i18n.js'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
+import { ATTACHMENT_ERRORS } from './coach-attachments.js'
 
 const POLL_MS = 3000        // a job is running: often enough to feel live
 const IDLE_MS = 60000       // a Coach screen is open but nothing is running
@@ -64,7 +65,9 @@ const _requestReview = async note => DEMO ? (await demo()).demoReview(S()) : LOC
 export const requestReview = (...a) => _requestReview(...a).then(track)
 const _requestPlan = async intake => DEMO ? (await demo()).demoPlan(S(), intake) : LOCAL() ? (await local()).localPlan(S(), intake) : api('/api/coach/plan', { method: 'POST', body: JSON.stringify({ intake, lang: getLang() }) })
 export const requestPlan = (...a) => _requestPlan(...a).then(track)
-const _refinePlan = async text => DEMO ? (await demo()).demoRefine(S()) : LOCAL() ? (await local()).localRefine(S(), text) : api('/api/coach/plan', { method: 'POST', body: JSON.stringify({ refine: text, lang: getLang() }) })
+// `attachments` ({ name, mediaType, data }) only ever come from a server that listed them in its
+// status; the demo and a phone with its own key list none, so they never get any to pass on.
+const _refinePlan = async (text, attachments) => DEMO ? (await demo()).demoRefine(S()) : LOCAL() ? (await local()).localRefine(S(), text) : api('/api/coach/plan', { method: 'POST', body: JSON.stringify({ refine: text, lang: getLang(), ...(attachments?.length ? { attachments: attachments.map(({ name, mediaType, data }) => ({ name, mediaType, data })) } : {}) }) })
 export const refinePlan = (...a) => _refinePlan(...a).then(track)
 const _requestDebrief = async workoutId => DEMO ? (await demo()).demoDebrief(S(), workoutId) : LOCAL() ? (await local()).localDebrief(S(), workoutId) : api('/api/coach/debrief', { method: 'POST', body: JSON.stringify({ workoutId: workoutId || null, lang: getLang() }) })
 export const requestDebrief = (...a) => _requestDebrief(...a).then(track)
@@ -162,6 +165,8 @@ export const JOB_ERRORS = {
   // The refusal at enqueue when the process cannot drop privileges (api/coach/jobs.js). The same
   // words as api/coach/routes.js USER_ERROR.unprivileged; what to fix goes to the admin card.
   get unprivileged() { return t('The Coach is switched off on this instance for safety reasons.') },
+  // A refused attachment; the server's `reason` picks a sharper line (lib/coach-attachments.js).
+  get attachments() { return ATTACHMENT_ERRORS.malformed },
   get internal() { return t('Something went wrong on the server.') }
 }
 

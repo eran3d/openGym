@@ -2321,4 +2321,16 @@ export default {
   'Your sports watch, calling you back.': 'আপনার স্পোর্টস ঘড়ি আপনাকে ফিরে ডাকছে।',
   'Coach wants you back on the bar.': 'কোচ আপনাকে আবার বারে চান।',
   'Gentle, for headphones or a quiet room.': 'মৃদু, হেডফোন বা শান্ত ঘরের জন্য।',
+  // --- Coach attachments ---
+  'Attach a file': 'ফাইল সংযুক্ত করুন',
+  'Build my plan from the attached file.': 'সংযুক্ত ফাইল থেকে আমার প্ল্যান তৈরি করো।',
+  'The Coach can’t read files on this instance.': 'এই সার্ভারে কোচ ফাইল পড়তে পারে না।',
+  'That file couldn’t be read.': 'ফাইলটি পড়া যায়নি।',
+  'The Coach reads PDFs and JPEG or PNG images.': 'কোচ PDF এবং JPEG বা PNG ছবি পড়ে।',
+  'That’s more files than the Coach takes at once.': 'কোচ একবারে যত ফাইল নেয়, এগুলো তার চেয়ে বেশি।',
+  'That file is too big for the Coach.': 'ফাইলটি কোচের জন্য খুব বড়।',
+  'Together these files are too big for the Coach.': 'একসাথে এই ফাইলগুলো কোচের জন্য খুব বড়।',
+  'Up to {0} MB per file.': 'প্রতি ফাইলে সর্বোচ্চ {0} MB।',
+  'Up to {0} MB in all.': 'সব মিলিয়ে সর্বোচ্চ {0} MB।',
+  'Up to {0} at a time.': 'একবারে সর্বোচ্চ {0}টি।',
 }

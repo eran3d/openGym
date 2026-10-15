@@ -2239,4 +2239,16 @@ export default {
   'Your sports watch, calling you back.': 'Ваш спортивний годинник кличе вас назад.',
   'Coach wants you back on the bar.': 'Тренер чекає вас назад біля штанги.',
   'Gentle, for headphones or a quiet room.': 'Тихий, для навушників або спокійної кімнати.',
+  // --- Coach attachments ---
+  'Attach a file': 'Прикріпити файл',
+  'Build my plan from the attached file.': 'Склади мій план за прикріпленим файлом.',
+  'The Coach can’t read files on this instance.': 'Тренер не може читати файли на цьому сервері.',
+  'That file couldn’t be read.': 'Не вдалося прочитати цей файл.',
+  'The Coach reads PDFs and JPEG or PNG images.': 'Тренер читає PDF і зображення JPEG або PNG.',
+  'That’s more files than the Coach takes at once.': 'Це більше файлів, ніж Тренер приймає за раз.',
+  'That file is too big for the Coach.': 'Цей файл завеликий для Тренера.',
+  'Together these files are too big for the Coach.': 'Разом ці файли завеликі для Тренера.',
+  'Up to {0} MB per file.': 'До {0} МБ на файл.',
+  'Up to {0} MB in all.': 'До {0} МБ загалом.',
+  'Up to {0} at a time.': 'До {0} за раз.',
 }

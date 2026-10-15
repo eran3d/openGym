@@ -330,6 +330,19 @@ export default function AdminCoach() {
             <span className="v"><input className="num" type="number" min="1024" max="65536" defaultValue={d.maxOutputTokens} disabled={busy}
               onBlur={e => +e.target.value !== d.maxOutputTokens && patch({ maxOutputTokens: +e.target.value })} /></span></div>
 
+          {d.attachments && <>
+            <div className="adm-hint" style={{ marginTop: 10 }}>Files a person can attach to a plan request: a PDF or a photo of a plan they already have, read by the model itself. Each one counts as part of a normal run. 0 files switches attachments off; at most 3.5 MB per request fits the request body. {d.attachments.supported ? '' : 'The provider in use cannot read files, so the chat shows no attach button.'}</div>
+            <div className="adm-kv"><span className="k">Files per message</span>
+              <span className="v"><input className="num" type="number" min="0" max="5" defaultValue={d.attachments.maxCount} disabled={busy}
+                onBlur={e => +e.target.value !== d.attachments.maxCount && patch({ attachments: { maxCount: +e.target.value } })} /></span></div>
+            <div className="adm-kv"><span className="k">MB per file</span>
+              <span className="v"><input className="num" type="number" min="0.1" max="3.5" step="0.1" defaultValue={+(d.attachments.maxBytes / 1048576).toFixed(1)} disabled={busy}
+                onBlur={e => Math.round(+e.target.value * 1048576) !== d.attachments.maxBytes && patch({ attachments: { maxBytes: Math.round(+e.target.value * 1048576) } })} /></span></div>
+            <div className="adm-kv"><span className="k">MB per request</span>
+              <span className="v"><input className="num" type="number" min="0.1" max="3.5" step="0.1" defaultValue={+(d.attachments.maxTotalBytes / 1048576).toFixed(1)} disabled={busy}
+                onBlur={e => Math.round(+e.target.value * 1048576) !== d.attachments.maxTotalBytes && patch({ attachments: { maxTotalBytes: Math.round(+e.target.value * 1048576) } })} /></span></div>
+          </>}
+
           <div className="adm-group-t" style={{ marginTop: 14 }}>Compare with others</div>
           <div className="row between" style={{ gap: 12, alignItems: 'flex-start' }}>
             <div className="adm-hint" style={{ margin: 0 }}>
