@@ -607,7 +607,12 @@ function attachmentsInto(p, attachments) {
    could see "three days, dumbbells only" would get an import adapted to it, which is the plan
    request's job, not this one's. The library is wider than a plan's and not filtered by
    equipment, because the program decides what it uses. */
-export const IMPORT_LIBRARY = 300;
+// 2,000 of the catalogue's lifts (stretches left out), classic exercises first: about 127k
+// characters, roughly 35-40k input tokens, once per import. At 300 a typical program's leg press,
+// seated cable row or incline dumbbell press was not in sight, and at 1,500 a barbell hip thrust
+// still was not; the model then settles for a near miss or a custom exercise. An import is a
+// one-off, so the wider slice is worth its cost, and it stays under half of MAX_PAYLOAD_CHARS.
+export const IMPORT_LIBRARY = 2000;
 function buildImport(S, opts) {
   const p = {
     coach_contract: CONTRACT,

@@ -2378,4 +2378,8 @@ export default {
   'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': 'সেভ হয়েছে! {0}টি রুটিন আপনার লাইব্রেরিতে আছে। কিছুই নির্ধারিত হয়নি: ট্রেনিংয়ের সময় প্ল্যান থেকে একটি শুরু করুন।',
   'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': 'রুটিনগুলো প্রোগ্রামের নামে একটি ফোল্ডারে যায়, ঠিক যেমন লেখা আছে। আপনার সপ্তাহ যেমন আছে তেমনই থাকে।',
   'Warm-up sets: {0}': 'ওয়ার্ম-আপ সেট: {0}',
+  'Replace the program waiting?': 'অপেক্ষমাণ প্রোগ্রামটি বদলে দেবেন?',
+  'This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.': 'এতে কোচের একটি নতুন রান শুরু হবে, আর অপেক্ষমাণ প্রোগ্রামটি সেভ হবে না। রাখতে চাইলে আগে সেভ করুন।',
+  'Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.': 'সেভ হয়েছে! {0}টি রুটিন “{1}” ফোল্ডারে আছে। কিছুই নির্ধারিত হয়নি: ট্রেনিংয়ের সময় প্ল্যান থেকে শুরু করুন।',
+  'Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.': 'সেভ হয়েছে! {0}টি রুটিন আপনার লাইব্রেরিতে আছে। কিছুই নির্ধারিত হয়নি: ট্রেনিংয়ের সময় প্ল্যান থেকে শুরু করুন।',
 }

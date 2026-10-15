@@ -2299,4 +2299,8 @@ export default {
   'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': '저장했습니다! 루틴 {0}개가 라이브러리에 있습니다. 예약된 것은 없습니다: 운동할 때 계획에서 하나를 시작하세요.',
   'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': '루틴은 프로그램 이름의 폴더에 쓰인 그대로 들어갑니다. 주간 일정은 그대로입니다.',
   'Warm-up sets: {0}': '워밍업 세트: {0}',
+  'Replace the program waiting?': '대기 중인 프로그램을 대체할까요?',
+  'This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.': '새 코치 실행이 시작되며, 대기 중인 프로그램은 저장되지 않습니다. 보관하려면 먼저 저장하세요.',
+  'Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.': '저장했습니다! 루틴 {0}개가 “{1}” 폴더에 있습니다. 예약된 것은 없습니다: 운동할 때 계획에서 시작하세요.',
+  'Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.': '저장했습니다! 루틴 {0}개가 라이브러리에 있습니다. 예약된 것은 없습니다: 운동할 때 계획에서 시작하세요.',
 }

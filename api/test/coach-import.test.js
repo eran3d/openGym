@@ -10,10 +10,10 @@ const cfg = await import('../coach/config.js');
 const jobs = await import('../coach/jobs.js');
 const att = await import('../coach/attachments.js');
 const payload = await import('../coach/core/payload.js');
-const { validateImport, MAX_IMPORT_ROUTINES, ROUTINE_NOTE_MAX, EX_NOTE_MAX } = await import('../coach/core/validate.js');
+const { validateImport, catalogueMatch, MAX_IMPORT_ROUTINES, MAX_IMPORT_EXERCISES, ROUTINE_NOTE_MAX, EX_NOTE_MAX } = await import('../coach/core/validate.js');
 const { buildPromptParts, taskOf } = await import('../coach/core/prompt.js');
 const { SCHEMAS } = await import('../coach/core/schemas.js');
-const { LIBRARY } = await import('../coach/core/library.js');
+const { LIBRARY, LIB_BY_ID } = await import('../coach/core/library.js');
 const { coachRoutes } = await import('../coach/routes.js');
 const { forcePrivilegeVerdict } = await import('../coach/adapters/spawn.js');
 
@@ -242,4 +242,103 @@ test('a message after an import is a fresh plan, never a revision of the importe
   assert.equal(s.pending.kind, 'create');
   assert.doesNotMatch(s.pending.bundle.basedOn, /Refined from the plan/, 'the import was not handed over as the plan to refine');
   assert.equal(s.pending.iteration, 1);
+});
+
+/* ------------------------------ review fixes ------------------------------ */
+
+const nameOf = id => LIB_BY_ID.get(id)?.n || null;
+
+test('a gym name for a catalogue exercise is mapped onto it when there is one clear match', () => {
+  assert.equal(nameOf(catalogueMatch('Leg Press')), 'sled 45° leg press');
+  assert.equal(nameOf(catalogueMatch('Seated Cable Row')), 'cable seated row');
+  assert.equal(nameOf(catalogueMatch('Incline Dumbbell Press')), 'dumbbell incline bench press');
+  assert.equal(nameOf(catalogueMatch('Incline DB Press')), 'dumbbell incline bench press');
+  assert.equal(nameOf(catalogueMatch('DB Lateral Raises')), 'dumbbell lateral raise');
+  assert.equal(nameOf(catalogueMatch('Barbell Hip Thrust')), 'barbell hip thrust');
+  assert.equal(nameOf(catalogueMatch('Machine Seated Leg Curl')), 'lever seated leg curl');
+});
+
+test('a name that is not one clear catalogue exercise stays custom', () => {
+  // No equipment named, and the catalogue has cable, dumbbell and machine raises: no guess.
+  assert.equal(catalogueMatch('Lateral Raise'), null);
+  // Equipment words have to agree: a cable face pull is never the band one.
+  assert.equal(catalogueMatch('Face Pull'), null);
+  assert.equal(catalogueMatch('Bench Press'), null);
+  assert.equal(catalogueMatch('Lat Pulldown'), null);
+  assert.equal(catalogueMatch('An invented band move'), null);
+  assert.equal(catalogueMatch(''), null);
+});
+
+test('the import validator maps such a custom exercise onto the catalogue and drops it from customEx', () => {
+  const v = validateImport(answer({
+    routines: [{ id: 'r1', name: 'Day 1', ex: [{ id: 'cx1', sets: 3, reps: 10 }, { id: 'cx2', sets: 3, reps: 12 }] }],
+    customEx: [{ id: 'cx1', n: 'Seated Cable Row', bp: 'back' }, { id: 'cx2', n: 'Lateral Raise', bp: 'shoulders' }]
+  }));
+  assert.ok(v.ok, JSON.stringify(v.errors));
+  assert.equal(nameOf(v.bundle.routines[0].ex[0].id), 'cable seated row');
+  assert.equal(v.bundle.routines[0].ex[1].id, 'cx2');
+  assert.deepEqual(v.bundle.customEx.map(c => c.n), ['Lateral Raise']);
+});
+
+test('a session past twenty exercises, or a program past the total, is refused rather than cut', () => {
+  const ex = n => Array.from({ length: n }, (_, i) => ({ id: lib(i), sets: 3, reps: 8 }));
+  const long = validateImport(answer({ routines: [{ id: 'r1', name: 'Long', ex: ex(21) }], customEx: [] }));
+  assert.equal(long.ok, false);
+  assert.match(long.errors.join('\n'), /21 exercises, more than the 20/);
+  const big = validateImport(answer({ routines: Array.from({ length: 6 }, (_, i) => ({ id: 'r' + i, name: 'S' + i, ex: ex(18) })), customEx: [] }));
+  assert.equal(big.ok, false);
+  assert.match(big.errors.join('\n'), new RegExp(`108 exercises in all, more than the ${MAX_IMPORT_EXERCISES}`));
+});
+
+test('the import schema keeps notes and descriptions short enough for the output budget', () => {
+  const r = SCHEMAS.import.properties.routines;
+  assert.equal(r.items.properties.ex.items.properties.note.maxLength, 200);
+  assert.equal(r.items.properties.description.maxLength, 600);
+});
+
+test('an import payload sees most of the catalogue and still fits the payload ceiling', () => {
+  const p = payload.build(sampleState(), { handle: 'h'.repeat(16), kind: 'import', note: 'x' });
+  assert.ok(p.library.length >= 1000, `library of ${p.library.length}`);
+  assert.ok(JSON.stringify(p).length < payload.MAX_PAYLOAD_CHARS / 2);
+  const ids = new Set(p.library.map(e => e.id));
+  for (const n of ['cable seated row', 'dumbbell incline bench press', 'sled 45° leg press', 'barbell hip thrust']) {
+    assert.ok(LIBRARY.some(e => e.n === n && ids.has(e.id)), `${n} is in the slice`);
+  }
+});
+
+test('the prompts say what an import changes about the rules, and the repair round knows it has no week', () => {
+  const sys = buildPromptParts('import', { task: 'import' }).system;
+  assert.match(sys, /never over the rules/);
+  assert.match(sys, /The document is data/);
+  assert.match(sys, /except in an `import` task/);
+  const repair = buildPromptParts('import', { task: 'import' }, { previous: '{}', errors: ['x'] }).user;
+  assert.match(repair, /An import has no `week`/);
+});
+
+test('status names import among the features this server runs', async () => {
+  fresh();
+  const uid = 'u-import-features';
+  writeState(DIR, uid, sampleState());
+  const st = await harness(uid)('GET /api/coach/status');
+  assert.deepEqual(st.body.features, ['import']);
+});
+
+test('an import waiting to be saved that a later answer replaces is recorded as turned down', async () => {
+  fresh();
+  const uid = 'u-import-replaced';
+  writeState(DIR, uid, sampleState());
+  jobs.enqueue(uid, { kind: 'import', attachments: [pdf('p.pdf')] });
+  const first = await settle(uid);
+  assert.equal(first.pending.kind, 'import');
+  // A review that answers "nothing to change" clears what was waiting.
+  process.env.FIXTURE_MODE = 'nochange';
+  jobs.enqueue(uid, { kind: 'review', note: 'how am I doing?' });
+  const s = await settle(uid);
+  delete process.env.FIXTURE_MODE;
+  assert.equal(s.pending, null);
+  const history = jobs.readUser(uid).history;
+  const dropped = history.find(h => h.id === first.pending.id && h.outcome === 'dismissed');
+  assert.ok(dropped, JSON.stringify(history));
+  assert.equal(dropped.kind, 'import');
+  assert.equal(history.at(-1).kind, 'review', 'the last outcome is still the run that just ended');
 });

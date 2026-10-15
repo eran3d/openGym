@@ -2299,4 +2299,8 @@ export default {
   'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': 'Kaydedildi! {0} rutin kitaplığında. Hiçbir şey planlanmadı: antrenman yaparken Plan’dan birini başlat.',
   'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': 'Rutinler, programın adını taşıyan bir klasöre, tam yazıldığı gibi gider. Haftan olduğu gibi kalır.',
   'Warm-up sets: {0}': 'Isınma setleri: {0}',
+  'Replace the program waiting?': 'Bekleyen program değiştirilsin mi?',
+  'This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.': 'Bu, yeni bir Koç çalışması başlatır ve bekleyen program kaydedilmez. Saklamak için önce kaydet.',
+  'Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.': 'Kaydedildi! {0} rutin “{1}” klasöründe. Hiçbir şey planlanmadı: antrenman yaparken Plan’dan başlat.',
+  'Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.': 'Kaydedildi! {0} rutin kitaplığında. Hiçbir şey planlanmadı: antrenman yaparken Plan’dan başlat.',
 }

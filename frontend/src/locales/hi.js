@@ -2299,4 +2299,8 @@ export default {
   'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': 'सहेजा गया! {0} रूटीन आपकी लाइब्रेरी में हैं। कुछ भी शेड्यूल नहीं हुआ: ट्रेनिंग के समय योजना से एक शुरू करें।',
   'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': 'रूटीन प्रोग्राम के नाम वाले फ़ोल्डर में जाते हैं, बिल्कुल जैसे लिखे हैं। आपका हफ़्ता जैसा है वैसा रहता है।',
   'Warm-up sets: {0}': 'वार्म-अप सेट: {0}',
+  'Replace the program waiting?': 'प्रतीक्षा में रखा प्रोग्राम बदलें?',
+  'This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.': 'इससे कोच का नया रन शुरू होगा, और प्रतीक्षा में रखा प्रोग्राम सहेजा नहीं जाएगा। रखना हो तो पहले सहेजें।',
+  'Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.': 'सहेजा गया! {0} रूटीन “{1}” फ़ोल्डर में है। कुछ भी शेड्यूल नहीं हुआ: ट्रेनिंग के समय योजना से शुरू करें।',
+  'Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.': 'सहेजा गया! {0} रूटीन आपकी लाइब्रेरी में है। कुछ भी शेड्यूल नहीं हुआ: ट्रेनिंग के समय योजना से शुरू करें।',
 }

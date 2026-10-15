@@ -42,6 +42,10 @@ POST /api/coach/plan
 | `POST /api/coach/import` | The kind is in the URL, like `/review` and `/debrief`. | It carries the same 20 MiB of files, so it needs its own `PLAN_BODY_LIMIT` in the server, its own exact-match `location` with `client_max_body_size 21m` in `web/nginx.conf.template`, and every operator's reverse proxy needs the same room on a second path. An instance that misses one answers `413` for an import and not for a plan, with the same file. |
 | **`POST /api/coach/plan` with `mode: "import"`** (chosen) | The large-body path stays one path: server, nginx and any proxy in front are unchanged. The attachment check, consent, caps and single-flight are the route's own code. | The kind is in the body. The job and the proposal still say `kind: "import"`, so nothing downstream reads the mode. |
 
+`GET /api/coach/status` names the jobs a server runs beyond plan, review and debrief:
+`features: ["import"]`. A client offers an import only when it is listed, so an app talking to an
+older server does not send a request that server would read as a plan.
+
 The job kind is its own (`import`, not `create` with a flag) because three things differ by kind
 and are already dispatched on it: the prompt (`taskOf`), the validator and the answer schema.
 
@@ -50,7 +54,7 @@ and are already dispatched on it: the prompt (`taskOf`), the validator and the a
 | | `create` | `import` |
 | --- | --- | --- |
 | Payload | profile, plan, history, library slice (160, their equipment), conversation | `meta`, library slice, `userNote`, `attachments`. No profile, no plan, no history, no conversation, no declined list. |
-| Library slice | 160, filtered to the profile's equipment | 300, unfiltered (`IMPORT_LIBRARY`), exercises the person already trains first, then their own exercises |
+| Library slice | 160, filtered to the profile's equipment | 2,000, unfiltered (`IMPORT_LIBRARY`): exercises the person already trains and their own first, then the catalogue's lifts, classic ones first. About 127k characters, 35-40k input tokens, once per import; at 300 a leg press or a seated cable row was out of sight |
 | Prompt | `common.md` + `create.md` | `common.md` + `import.md` |
 | Validator | `validatePlan` (week, days per week, at most 7 routines) | `validateImport` (no week, at most 14 routines) |
 | Schema | `CREATE_SCHEMA` | `IMPORT_SCHEMA` |
@@ -63,7 +67,10 @@ call, the daily caps, one job at a time per profile, the repair round, the attac
 every way out.
 
 A message sent while an import proposal waits does not refine it: the document is not kept, so
-there is nothing to re-read. Sending another import replaces the proposal, like a fresh plan does.
+there is nothing to re-read, and a refine only ever revises a waiting plan. Whatever the next run
+answers takes the import's place, "nothing to change" included, so the web app asks first, and
+records the program as turned down once the run is queued. The server does the same for any
+client: an import a later result replaces goes into the profile's history as `dismissed`.
 
 ## 3. What the model answers
 
@@ -99,20 +106,42 @@ there is nothing to re-read. Sending another import replaces the proposal, like 
 | --- | --- |
 | `programName` → `bundle.name` | Required, cut to 60. |
 | `description` → `bundle.summary` | Cut to 1200, like a plan's summary. |
-| `routines` | 1 to 14 (`MAX_IMPORT_ROUTINES`); an id used twice is an error. No `week`. |
+| `routines` | 1 to 14 (`MAX_IMPORT_ROUTINES`), at most 100 exercises in all (`MAX_IMPORT_EXERCISES`); more is an error for the repair round, never a silent cut. An id used twice is an error. No `week`. |
 | `routines[].name` | Required, cut to 40. |
 | `routines[].description` → `routines[].note` | Cut to 1000 (`ROUTINE_NOTE_MAX`). |
 | `routines[].prog` | One of the app's policies, or absent. |
-| `routines[].ex` | 1 to 20 each; each id from the library or this answer's `customEx`; once per routine. |
+| `routines[].ex` | 1 to 20 each (more is an error, not a cut); each id from the library or this answer's `customEx`; once per routine. |
 | `ex.sets` | 1 to 10. |
 | `ex.mode` | `reps` (`reps` 1 to 100, `repsMin` the floor of a range), `time` (`sec`), `cardio` (`min`, `speed`). |
 | `ex.restSec` | 5 to 900 seconds, else dropped. |
 | `ex.warmupSets` | 1 to 5, else dropped. |
 | `ex.lastToFailure` | `true` or dropped (not on cardio). |
-| `ex.note` | Cut to 500, the app's own limit for an exercise note. |
+| `ex.note` | Cut to 500, the app's own limit for an exercise note. The prompt and the schema ask for 200. |
 | `ex.weight` | Always dropped: an import has no history to start from, and a percentage of a 1RM is not a weight. The percentage goes in the note. |
 | `ex.prog`, `inc`, `repsMax`, `setsMax`, `side`, `bodyweight`, `sg` | As for a created plan. |
-| `customEx` | As for a created plan, plus: one whose name is a catalogue name (case and spacing aside) becomes that catalogue exercise. |
+| `customEx` | As for a created plan, plus: one that names a catalogue exercise becomes it (`catalogueMatch`, below). |
+
+### Custom exercises that are catalogue exercises
+
+The model names what it cannot find in its slice as a custom exercise, in the document's words.
+`catalogueMatch` maps such a name onto the catalogue, and only when the answer is clear:
+
+1. the whole name, case and spacing aside;
+2. one of the few gym names the catalogue words differently (`CATALOGUE_ALIASES`: "Leg Press" is
+   "sled 45° leg press");
+3. the same words in another order with only one catalogue entry: "Seated Cable Row" is "cable
+   seated row", "Incline DB Press" is "dumbbell incline bench press". Equipment words are read as
+   one word each (DB is dumbbell, lever is machine) and have to be the same on both sides, plurals
+   are folded, and "bench" and numbers are not counted. Anything else stays custom: "Lateral Raise"
+   names no equipment and the catalogue has cable, dumbbell and machine raises.
+
+### The output budget
+
+An answer has to fit the provider's output limit (`MAX_OUTPUT_TOKENS`, 16k) or it arrives cut off
+and cannot be parsed. An exercise is about 45 tokens before its note and a 200-character note about
+50 more, so 100 exercises with fourteen short descriptions stay near 12k. Fourteen routines of
+twenty would not fit, which is why the total is capped and the schema bounds the note (200) and
+the descriptions (1200 for the program, 600 per routine).
 
 What the app has no field for (a target RPE or RIR, a percentage of 1RM, tempo, a substitution)
 goes in the exercise's `note`, which the workout screen shows under the exercise. A program that
@@ -153,15 +182,18 @@ the name as an editable text field; the Coach payload leaves it out, like folder
 ### For a client that ports it
 
 `applyImport` takes only the draft and the proposal and reads the clock (`Date.now`) and the id
-generator (`uid`, `Math.random`) like every other apply step, so a vector generator can fix both
-(the `coach` runner in OpenGym-Swift's `parity/generate.mjs` already does) and add
-`{ op: 'import', proposal }` to its steps.
+generator (`uid`, `Math.random`) like every other apply step, so a test that fixes both can replay
+it step for step, as the other apply steps already are.
 
 ## 5. Web UI
 
 - With files picked, the composer shows a choice above them: **Plan for me** (the existing plan
   request, the default) or **Import to library**. The menu has **Import a program**, which opens
-  the file picker with import already chosen. Both appear only where attachments do.
+  the file picker with import already chosen. Both appear only where attachments do and the
+  server lists `import` in `features`. A picker closed without a file, or the last file removed,
+  puts the choice back to **Plan for me**.
+- A message typed while an import waits asks first ("Replace the program waiting?"), since the
+  next run's answer takes its place.
 - The proposal card for an import shows the program name, its description, a tab per routine
   with the routine's description and each exercise with its prescription and note, and
   **Save to library** / **Discard**. No week strip and no schedule switch.

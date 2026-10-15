@@ -2310,4 +2310,8 @@ export default {
   'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': 'บันทึกแล้ว! รูทีน {0} รายการอยู่ในคลังของคุณ ไม่มีอะไรถูกจัดตาราง: เริ่มรูทีนจากแผนเมื่อคุณฝึก',
   'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': 'รูทีนจะไปอยู่ในโฟลเดอร์ที่ตั้งชื่อตามโปรแกรม ตรงตามที่เขียนไว้ สัปดาห์ของคุณยังคงเดิม',
   'Warm-up sets: {0}': 'เซ็ตวอร์มอัป: {0}',
+  'Replace the program waiting?': 'แทนที่โปรแกรมที่รออยู่หรือไม่',
+  'This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.': 'การดำเนินการนี้จะเริ่มการทำงานของโค้ชรอบใหม่ และโปรแกรมที่รออยู่จะไม่ถูกบันทึก บันทึกก่อนหากต้องการเก็บไว้',
+  'Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.': 'บันทึกแล้ว! รูทีน {0} รายการอยู่ในโฟลเดอร์ “{1}” ไม่มีอะไรถูกจัดตาราง: เริ่มจากแผนเมื่อคุณฝึก',
+  'Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.': 'บันทึกแล้ว! รูทีน {0} รายการอยู่ในคลังของคุณ ไม่มีอะไรถูกจัดตาราง: เริ่มจากแผนเมื่อคุณฝึก',
 }

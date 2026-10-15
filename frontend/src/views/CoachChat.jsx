@@ -49,7 +49,7 @@ export default function CoachChat() {
   const storeReady = useStore(s => s.ready)
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
-  const { job, pending, cap, loading, lastError, last, refresh, maxMessageLen, attachments: attachCap } = useCoachStatus(true)
+  const { job, pending, cap, loading, lastError, last, refresh, maxMessageLen, attachments: attachCap, features } = useCoachStatus(true)
   const [text, setText] = useState('')
   // Files picked for the next message, already read: { name, mediaType, size, data }. They live
   // here until sent and are never written to the store, so a reload or a sync never carries them.
@@ -108,6 +108,9 @@ export default function CoachChat() {
   // Only a server that said it takes files gets the button: the demo and a phone with its own
   // key report none, and a provider that cannot read them (Codex, a compatible endpoint) neither.
   const canAttach = !!attachCap && !DEMO && !(MOBILE && coachMode === 'byok')
+  // An import only where the server says it runs one (status `features`): an older server would
+  // refuse it, or worse, read the request as a plan.
+  const canImport = canAttach && Array.isArray(features) && features.includes('import')
   // An admin switching to a provider that cannot read files takes the paperclip away on the next
   // poll. Files already picked go with it, and the person is told rather than finding them gone.
   useEffect(() => {
@@ -117,6 +120,17 @@ export default function CoachChat() {
     }
   }, [canAttach, files.length])
 
+  // "Import a program" picks import before the picker opens. A picker closed without a file, or
+  // the last picked file removed again, puts the next file back to the default, a plan request.
+  useEffect(() => { if (!files.length) setFileMode('plan') }, [files.length])
+  useEffect(() => {
+    const input = fileRef.current
+    if (!input) return
+    const cancel = () => { if (!files.length) setFileMode('plan') }
+    input.addEventListener('cancel', cancel)
+    return () => input.removeEventListener('cancel', cancel)
+  }, [files.length, canAttach])
+
   if (!ready) return null
   const coach = S.coach || emptyCoach()
   const community = !!config?.coach?.community && !DEMO && !(MOBILE && coachMode === 'byok')
@@ -124,7 +138,7 @@ export default function CoachChat() {
   const pickFiles = async e => {
     const picked = [...(e.target.files || [])]
     e.target.value = ''
-    if (!picked.length) return
+    if (!picked.length) { if (!files.length) setFileMode('plan'); return }
     const ok = checkPicked(files, picked, attachCap)
     if (!ok.ok) return toast(attachmentErrorText(ok.reason, attachCap))
     try {
@@ -134,8 +148,22 @@ export default function CoachChat() {
   }
 
   const send = () => {
+    // A program waiting to be saved is asked about before anything is sent: whatever the next run
+    // answers, even "nothing to change", takes its place. Once the run is queued, the program is
+    // recorded as turned down, as Discard would have done.
+    if (pending?.kind === 'import') {
+      return confirmSheet({
+        title: t('Replace the program waiting?'),
+        message: t('This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.'),
+        confirmText: t('Replace'),
+        onConfirm: () => { doSend(() => update(s => {
+          const ref = recordDismissal(s, pending)
+          appendChat(s, { role: 'coach', kind: 'dismissed', ref, text: t('Discarded. Send the program again whenever you like.') })
+        })) }
+      })
+    }
     // An import takes the place of whatever is waiting, a plan included.
-    if (canAttach && files.length && fileMode === 'import' && pending) {
+    if (canImport && files.length && fileMode === 'import' && pending) {
       return confirmSheet({
         title: t('Replace what the Coach proposed?'),
         message: t('An imported program takes the place of the proposal waiting for you. It is not applied.'),
@@ -155,9 +183,9 @@ export default function CoachChat() {
     }
     return doSend()
   }
-  const doSend = async () => {
+  const doSend = async (queued) => {
     const withFiles = canAttach && files.length > 0
-    const importing = withFiles && fileMode === 'import'
+    const importing = withFiles && canImport && fileMode === 'import'
     // A file with nothing typed beside it still says what it is for.
     const msg = text.trim() || (importing ? t('Import this program into my library.') : withFiles ? t('Build my plan from the attached file.') : '')
     if (!msg || busy) return
@@ -171,6 +199,7 @@ export default function CoachChat() {
       else if (withFiles) await refinePlan(msg, files)
       else if (pending?.kind === 'create' || !(S.routines || []).length) await refinePlan(msg)
       else await requestReview(msg)
+      if (queued) queued()
       // The chat keeps the file names, never the files.
       update(s => appendChat(s, { role: 'user', kind: 'text', text: msg, ...(withFiles ? { files: files.map(f => f.name) } : {}) }))
       setText('')
@@ -228,7 +257,7 @@ export default function CoachChat() {
       {community && <Row icon="person" iconTint="var(--teal)" title={t('Compare with others here')} subtitle={t('Anonymous medians from this instance')} accessory="chevron" onClick={() => { close(); showCohort() }} />}
       <Row icon="history" iconTint="var(--blue)" title={t('Everything the Coach proposed')} subtitle={t('Plans, suggestions and debriefs, kept')} accessory="chevron" onClick={() => { close(); showHistory() }} />
       {/* Offered with a proposal waiting too: sending asks before an import takes its place. */}
-      {!job && canAttach && <Row icon="download" iconTint="var(--teal)" title={t('Import a program')} subtitle={t('A PDF or photo of a program, copied into your library as written')} accessory="chevron" onClick={() => { close(); setFileMode('import'); fileRef.current?.click() }} />}
+      {!job && canImport && <Row icon="download" iconTint="var(--teal)" title={t('Import a program')} subtitle={t('A PDF or photo of a program, copied into your library as written')} accessory="chevron" onClick={() => { close(); setFileMode('import'); fileRef.current?.click() }} />}
       {idle && <Row icon="clipboard" iconTint="var(--indigo)" title={t('Start a new plan')} subtitle={t('A fresh plan from your answers; your workouts stay')} accessory="chevron" onClick={() => { close(); askNewPlan() }} />}
       <Row icon="pencil" iconTint="var(--indigo)" title={t('Edit my answers')} subtitle={t('Goal, days, equipment, limits')} accessory="chevron" onClick={() => closeThenNav(close, '/coach/intake?edit=1')} />
       <Row icon="clock" iconTint="var(--purple)" title={t('Automatic reviews')} subtitle={cadenceLabel(coach)} accessory="chevron" onClick={() => { close(); cadenceSheet(openSheet, update) }} />
@@ -289,7 +318,7 @@ export default function CoachChat() {
         {!!(S.routines || []).length && <button className="qchip" onClick={pickRoutine}><Icon name="wrench" />{t('Improve a routine')}</button>}
         {community && <button className="qchip" onClick={showCohort}><Icon name="person" />{t('Compare')}</button>}
       </div>}
-      {canAttach && files.length > 0 && <Segmented className="attach-mode" value={fileMode} onChange={setFileMode}
+      {canImport && files.length > 0 && <Segmented className="attach-mode" value={fileMode} onChange={setFileMode}
         options={[{ value: 'plan', label: t('Plan for me') }, { value: 'import', label: t('Import to library') }]} />}
       {canAttach && files.length > 0 && <div className="chips-row attach-row">
         {files.map((f, i) => <span key={i} className="qchip attach-chip">
@@ -485,8 +514,8 @@ function ImportCard({ p, S, update, toast, refresh }) {
         const res = applyImport(s, p)
         const folder = (s.routineFolders || []).find(f => f.id === res.folder)
         appendChat(s, { role: 'coach', kind: 'applied', ref: res.logId, text: folder
-          ? t('Saved! {0} routines are in the folder “{1}”. Nothing is scheduled: start one from Plan when you train.', res.routines, folder.name)
-          : t('Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.', res.routines) })
+          ? tn('Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.', 'Saved! {0} routines are in the folder “{1}”. Nothing is scheduled: start one from Plan when you train.', res.routines, folder.name)
+          : tn('Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.', 'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.', res.routines) })
       })
       resolvePending({ accepted: ['import'] }).catch(() => {})
       toast(t('Saved to your library'))

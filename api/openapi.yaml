@@ -3803,6 +3803,12 @@ components:
             What a plan request may carry as attachments, or null when the configured provider
             cannot read files (or the admin switched them off). Rides on the poll like
             `maxMessageLen`, so switching provider takes the attach button away from an open chat.
+        features:
+          type: array
+          items: { type: string, enum: [import] }
+          description: |
+            Jobs this server runs beyond plan, review and debrief. `import`: `POST /api/coach/plan`
+            with `mode: import`. A client offers a feature only when it is listed here.
         last:
           oneOf:
             - type: object

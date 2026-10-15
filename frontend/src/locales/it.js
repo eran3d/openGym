@@ -2299,4 +2299,8 @@ export default {
   'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': 'Salvato! {0} routine sono nella tua libreria. Non è pianificato nulla: avviane una da Piano quando ti alleni.',
   'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': 'Le routine finiscono in una cartella con il nome del programma, esattamente come scritte. La tua settimana resta com’è.',
   'Warm-up sets: {0}': 'Serie di riscaldamento: {0}',
+  'Replace the program waiting?': 'Sostituire il programma in attesa?',
+  'This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.': 'Così parte una nuova richiesta al Coach e il programma in attesa non viene salvato. Salvalo prima per tenerlo.',
+  'Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.': 'Salvato! {0} routine è nella cartella “{1}”. Non è pianificato nulla: avviala da Piano quando ti alleni.',
+  'Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.': 'Salvato! {0} routine è nella tua libreria. Non è pianificato nulla: avviala da Piano quando ti alleni.',
 }

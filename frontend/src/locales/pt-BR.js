@@ -1451,6 +1451,10 @@ export const PT_BR_OVERRIDES = {
   'Saved! {0} routines are in the folder “{1}”. Nothing is scheduled: start one from Plan when you train.': 'Salvo! {0} rotinas estão na pasta “{1}”. Nada está agendado: comece uma pelo Plano quando for treinar.',
   'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': 'Salvo! {0} rotinas estão na sua biblioteca. Nada está agendado: comece uma pelo Plano quando for treinar.',
   'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': 'As rotinas vão para uma pasta com o nome do programa, exatamente como escritas. Sua semana continua como está.',
+  'Replace the program waiting?': 'Substituir o programa em espera?',
+  'This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.': 'Isso inicia um novo pedido ao Treinador e o programa em espera não é salvo. Salve-o primeiro para mantê-lo.',
+  'Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.': 'Salvo! {0} rotina está na pasta “{1}”. Nada está agendado: comece-a pelo Plano quando for treinar.',
+  'Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.': 'Salvo! {0} rotina está na sua biblioteca. Nada está agendado: comece-a pelo Plano quando for treinar.',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

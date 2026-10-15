@@ -2299,4 +2299,8 @@ export default {
   'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': '已保存！{0} 个训练计划在你的库中。没有安排任何日程：训练时从计划页开始其中一个。',
   'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': '训练计划会放进一个以方案命名的文件夹，完全按原文。你的每周安排保持不变。',
   'Warm-up sets: {0}': '热身组：{0}',
+  'Replace the program waiting?': '要取代等待中的方案吗？',
+  'This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.': '这会让教练重新运行一次，等待中的方案不会被保存。想保留就先保存。',
+  'Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.': '已保存！{0} 个训练计划在文件夹“{1}”中。没有安排任何日程：训练时从计划页开始。',
+  'Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.': '已保存！{0} 个训练计划在你的库中。没有安排任何日程：训练时从计划页开始。',
 }

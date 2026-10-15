@@ -237,6 +237,11 @@ export function validatePlan(data, ctx = {}) {
 // docs/dev/coach-import.md. A six-day program is six routines, and a program with an A and a B
 // week twelve; 14 leaves room for that and none for a model walking the library.
 export const MAX_IMPORT_ROUTINES = 14;
+// What one answer can carry inside the provider's output budget (MAX_OUTPUT_TOKENS, 16k): an
+// exercise is about 45 tokens before its note and a short note about 50 more, so 100 of them with
+// fourteen descriptions stays near 12k. Fourteen routines of twenty would not fit, and an answer
+// cut off half-way cannot be parsed at all.
+export const MAX_IMPORT_EXERCISES = 100;
 // The routine's own description (routines[].note in the app, frontend/src/lib/routines.js).
 export const ROUTINE_NOTE_MAX = 1000;
 // The app's own limit for an exercise's note (sheets.jsx, the exercise config sheet).
@@ -247,18 +252,82 @@ const MAX_REST_SEC = 900;
 const PROGRAM_NAME_MAX = 60;
 const PROGRAM_DESC_MAX = 1200;
 
-// A custom exercise the model added for a movement the catalogue does have, under the catalogue's
-// own name: the library slice it saw is 300 of 5,000+, so the right answer was out of its sight.
-// Matched on the whole name only (case and spacing aside), never on a part of one.
+// A custom exercise the model added for a movement the catalogue does have: the library slice it
+// saw is a part of 5,000+, and a program names its lifts the way gyms do ("Seated Cable Row"),
+// not the way the catalogue does ("cable seated row"). `catalogueMatch` maps such a name onto the
+// catalogue, and only when the answer is clear:
+//   1. the whole name, case and spacing aside;
+//   2. one of the few gym names the catalogue words differently (CATALOGUE_ALIASES);
+//   3. the same words in another order, and only one catalogue entry with them: "Seated Cable Row"
+//      is "cable seated row", "Incline DB Press" is "dumbbell incline bench press" (equipment
+//      words read as one word each, "bench" and numbers not counted). The equipment words have to
+//      be the same on both sides, so "Lateral Raise" never becomes a cable or a band raise, and a
+//      name with a word the catalogue entry lacks, or the other way round, stays custom.
 const nameKey = n => String(n || '').toLowerCase().replace(/\s+/g, ' ').trim();
-let CATALOGUE_BY_NAME = null;
-const catalogueIdFor = n => {
-  if (!CATALOGUE_BY_NAME) {
-    CATALOGUE_BY_NAME = new Map();
-    for (const e of LIBRARY) if (!CATALOGUE_BY_NAME.has(nameKey(e.n))) CATALOGUE_BY_NAME.set(nameKey(e.n), e.id);
-  }
-  return CATALOGUE_BY_NAME.get(nameKey(n)) || null;
+const CATALOGUE_ALIASES = { 'leg press': 'sled 45° leg press' };
+// Equipment words, each with the one word it counts as, and the catalogue `eq` values it allows.
+const EQUIPMENT_WORDS = {
+  barbell: 'barbell', bb: 'barbell', dumbbell: 'dumbbell', db: 'dumbbell', cable: 'cable',
+  kettlebell: 'kettlebell', band: 'band', resistance: 'band', smith: 'smith', lever: 'machine',
+  machine: 'machine', sled: 'machine', ez: 'ez', landmine: 'landmine', trap: 'trap', bodyweight: 'bodyweight'
 };
+const EQUIPMENT_EQ = {
+  barbell: ['barbell'], dumbbell: ['dumbbell'], cable: ['cable'], kettlebell: ['kettlebell'],
+  band: ['band', 'resistance band'], smith: ['smith machine'], machine: ['leverage machine', 'sled machine'],
+  ez: ['ez barbell'], landmine: ['landmine', 'barbell'], trap: ['trap bar'], bodyweight: ['body weight']
+};
+const equipmentOf = words => [...new Set(words.filter(w => EQUIPMENT_EQ[w]))].sort().join(' ');
+const NEUTRAL = new Set(['bench']);
+const STOP = new Set(['the', 'a', 'an', 'with', 'on', 'of', 'and', 'to', 'in', 'for']);
+const wordsOf = n => String(n || '').toLowerCase()
+  // A bracket that only says how it was filmed or for whom is not part of the movement.
+  .replace(/\((?:[^)]*\bpov\b[^)]*|male|female|version \d+)\)/g, ' ')
+  .replace(/pull[\s-]?downs?/g, 'pulldown').replace(/pull[\s-]?ups?/g, 'pullup').replace(/push[\s-]?downs?/g, 'pushdown')
+  .replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
+  .filter(w => w && !STOP.has(w))
+  // "raises", "thrusts", "rows": one plural rule, applied to both sides alike.
+  .map(w => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w))
+  .map(w => EQUIPMENT_WORDS[w] || w);
+let BY_NAME = null;
+let INDEX = null;
+function catalogueIndex() {
+  if (!INDEX) {
+    BY_NAME = new Map();
+    INDEX = [];
+    const seen = new Set();
+    for (const e of LIBRARY) {
+      if (!BY_NAME.has(nameKey(e.n))) BY_NAME.set(nameKey(e.n), e.id);
+      if (/\bstretch|\(female\)|\bv\.\s*\d/i.test(e.n)) continue;
+      // Variants that differ only in how they were filmed ("(side pov)") are one movement: the
+      // first stands for it. Any other bracket ("(with arm blaster)") is a word like the rest.
+      const words = [...new Set(wordsOf(e.n))];
+      const key = e.eq + '|' + [...words].sort().join(' ');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      INDEX.push({ id: e.id, eq: e.eq, words: new Set(words), equipment: equipmentOf(words) });
+    }
+  }
+  return INDEX;
+}
+export function catalogueMatch(name) {
+  const index = catalogueIndex();
+  const exact = BY_NAME.get(nameKey(name));
+  if (exact) return exact;
+  const alias = CATALOGUE_ALIASES[nameKey(name)];
+  if (alias) return BY_NAME.get(alias) || null;
+  const words = [...new Set(wordsOf(name))];
+  if (!words.length) return null;
+  const equipment = equipmentOf(words);
+  const allowed = equipment ? equipment.split(' ').flatMap(w => EQUIPMENT_EQ[w] || []) : null;
+  const scored = [];
+  for (const c of index) {
+    if (c.equipment !== equipment || !words.every(w => c.words.has(w))) continue;
+    if (allowed && !allowed.includes(c.eq)) continue;
+    if ([...c.words].some(w => !words.includes(w) && !NEUTRAL.has(w) && !/^\d+$/.test(w))) continue;
+    scored.push(c.id);
+  }
+  return scored.length === 1 ? scored[0] : null;
+}
 
 /**
  * Validate an import answer into a bundle `applyImport` (frontend/src/lib/coach.js) consumes.
@@ -277,6 +346,9 @@ export function validateImport(data, ctx = {}) {
       : 'routines must be a non-empty array, one routine per session of the program');
   } else if (data.routines.length > MAX_IMPORT_ROUTINES) {
     errors.push(`the program has ${data.routines.length} routines, more than the ${MAX_IMPORT_ROUTINES} an import can hold: import the first block of the program and describe the rest in description`);
+  } else {
+    const total = data.routines.reduce((n, r) => n + (Array.isArray(r?.ex) ? r.ex.length : 0), 0);
+    if (total > MAX_IMPORT_EXERCISES) errors.push(`the program has ${total} exercises in all, more than the ${MAX_IMPORT_EXERCISES} an import can hold: import the first block of the program and describe the rest in description`);
   }
 
   (Array.isArray(data.customEx) ? data.customEx : []).forEach((c, i) => {
@@ -289,7 +361,7 @@ export function validateImport(data, ctx = {}) {
     .slice(0, 20)
     .forEach(c => {
       const id = clampStr(c.id, 40);
-      const same = catalogueIdFor(c.n);
+      const same = catalogueMatch(c.n);
       if (same) { remap.set(id, same); return; }
       customEx.push({ id, n: clampStr(c.n, 60), bp: clampStr(c.bp || 'waist', 30), ...(c.desc ? { desc: clampStr(c.desc, 400) } : {}) });
     });
@@ -301,6 +373,10 @@ export function validateImport(data, ctx = {}) {
     if (!isStr(r.name)) errors.push(`routines[${ri}].name is required`);
     if (r.prog != null && !POLICIES.includes(r.prog)) errors.push(`routines[${ri}].prog "${r.prog}" is not one of ${POLICIES.join(', ')}`);
     const ex = [];
+    // Never cut silently: a session past the limit would arrive with its last exercises missing.
+    if (Array.isArray(r.ex) && r.ex.length > MAX_EX_PER_ROUTINE) {
+      errors.push(`routines[${ri}] has ${r.ex.length} exercises, more than the ${MAX_EX_PER_ROUTINE} a routine can hold: put warm-up drills or optional extras in the routine's description instead`);
+    }
     (Array.isArray(r.ex) ? r.ex : []).slice(0, MAX_EX_PER_ROUTINE).forEach((e, ei) => {
       const where = `routines[${ri}].ex[${ei}]`;
       if (!e || !isStr(e.id)) { errors.push(`${where}.id is required`); return; }

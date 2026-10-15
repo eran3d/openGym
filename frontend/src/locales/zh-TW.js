@@ -2292,4 +2292,8 @@ export default {
   'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': '已儲存！{0} 個訓練課表在你的庫中。沒有排入任何日程：訓練時從計畫頁開始其中一個。',
   'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': '訓練課表會放進一個以方案命名的資料夾，完全照原文。你的每週安排維持不變。',
   'Warm-up sets: {0}': '熱身組：{0}',
+  'Replace the program waiting?': '要取代等待中的方案嗎？',
+  'This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.': '這會讓 AI 教練重新執行一次，等待中的方案不會被儲存。想保留就先儲存。',
+  'Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.': '已儲存！{0} 個訓練課表在資料夾「{1}」中。沒有排入任何日程：訓練時從計畫頁開始。',
+  'Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.': '已儲存！{0} 個訓練課表在你的庫中。沒有排入任何日程：訓練時從計畫頁開始。',
 }

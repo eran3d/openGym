@@ -2354,4 +2354,8 @@ export default {
   'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': 'تم الحفظ! {0} روتينات في مكتبتك. لم يُجدول شيء: ابدأ واحدًا من الخطة عندما تتدرب.',
   'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': 'تذهب الروتينات إلى مجلد باسم البرنامج، تمامًا كما كُتبت. يبقى أسبوعك كما هو.',
   'Warm-up sets: {0}': 'مجموعات الإحماء: {0}',
+  'Replace the program waiting?': 'استبدال البرنامج المنتظر؟',
+  'This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.': 'سيبدأ هذا تشغيلًا جديدًا للمدرب، ولن يُحفظ البرنامج المنتظر. احفظه أولًا للاحتفاظ به.',
+  'Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.': 'تم الحفظ! {0} روتين في المجلد “{1}”. لم يُجدول شيء: ابدأه من الخطة عندما تتدرب.',
+  'Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.': 'تم الحفظ! {0} روتين في مكتبتك. لم يُجدول شيء: ابدأه من الخطة عندما تتدرب.',
 }

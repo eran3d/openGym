@@ -2302,4 +2302,8 @@ export default {
   'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': 'Elmentve! {0} rutin van a könyvtáradban. Semmi sincs beütemezve: indíts egyet a Tervből, amikor edzel.',
   'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': 'A rutinok egy, a program nevét viselő mappába kerülnek, pontosan úgy, ahogy le vannak írva. A heted marad, ahogy van.',
   'Warm-up sets: {0}': 'Bemelegítő sorozatok: {0}',
+  'Replace the program waiting?': 'Lecseréled a várakozó programot?',
+  'This starts a new Coach run, and the program waiting for you is not saved. Save it first to keep it.': 'Ez új edzői futást indít, és a várakozó programot nem mentjük el. Mentsd el előbb, ha meg akarod tartani.',
+  'Saved! {0} routine is in the folder “{1}”. Nothing is scheduled: start it from Plan when you train.': 'Elmentve! {0} rutin van a(z) „{1}” mappában. Semmi sincs beütemezve: indítsd a Tervből, amikor edzel.',
+  'Saved! {0} routine is in your library. Nothing is scheduled: start it from Plan when you train.': 'Elmentve! {0} rutin van a könyvtáradban. Semmi sincs beütemezve: indítsd a Tervből, amikor edzel.',
 }

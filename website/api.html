@@ -4652,6 +4652,11 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="p-desc">What a plan request may carry as attachments, or null when the configured provider cannot read files (or the admin switched them off). Rides on the poll like <code>maxMessageLen</code>, so switching provider takes the attach button away from an open chat.</span>
   </div>
   <div class="prow">
+    <span class="p-name">features</span>
+    <span class="p-type">&quot;import&quot;[]</span>
+    <span class="p-desc">Jobs this server runs beyond plan, review and debrief. <code>import</code>: <code>POST /api/coach/plan</code> with <code>mode: import</code>. A client offers a feature only when it is listed here.</span>
+  </div>
+  <div class="prow">
     <span class="p-name">last</span>
     <span class="p-type">object | null</span>
     <span class="p-desc"></span>

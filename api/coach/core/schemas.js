@@ -110,7 +110,9 @@ const IMPORT_EX_SCHEMA = {
     prog: STR, inc: { type: 'number' },
     restSec: { type: 'integer' }, warmupSets: { type: 'integer' }, lastToFailure: { type: 'boolean' },
     bodyweight: { type: 'boolean' }, side: { type: 'boolean' },
-    sg: STR, note: STR
+    sg: STR,
+    // Short on purpose: 100 exercises have to fit the output budget (validate.js MAX_IMPORT_EXERCISES).
+    note: { type: 'string', maxLength: 200 }
   },
   required: ['id', 'sets']
 };
@@ -121,14 +123,14 @@ export const IMPORT_SCHEMA = {
     coach_contract: { type: 'integer' },
     opengym_import: { type: 'integer' },
     programName: STR,
-    description: STR,
+    description: { type: 'string', maxLength: 1200 },
     routines: {
       type: 'array',
       maxItems: 14,
       items: {
         type: 'object',
         properties: {
-          id: STR, name: STR, emoji: STR, prog: STR, description: STR,
+          id: STR, name: STR, emoji: STR, prog: STR, description: { type: 'string', maxLength: 600 },
           ex: { type: 'array', maxItems: 20, items: IMPORT_EX_SCHEMA }
         },
         required: ['id', 'name', 'ex']

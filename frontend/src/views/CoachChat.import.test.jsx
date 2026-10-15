@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { parseHTML } from 'linkedom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CoachChat from './CoachChat.jsx'
-import { refinePlan, importProgram, resolvePending } from '../lib/coach-api.js'
+import { refinePlan, importProgram, resolvePending, requestReview } from '../lib/coach-api.js'
 import { confirmSheet } from '../sheets.jsx'
 import { CONSENT_VERSION } from '../lib/coach.js'   // the consent a fixture grants is the current one, whatever its number
 
@@ -11,7 +11,7 @@ import { CONSENT_VERSION } from '../lib/coach.js'   // the consent a fixture gra
 // as an import, the import's proposal is shown with its descriptions and notes, and saving it
 // files the routines in a folder without touching the week.
 const mocks = vi.hoisted(() => {
-  const state = { S: null, pending: null, job: null, community: false, maxMessageLen: 2200, attachments: null, nav: vi.fn(), toast: vi.fn(), openSheet: vi.fn(), refresh: vi.fn() }
+  const state = { S: null, pending: null, job: null, community: false, maxMessageLen: 2200, attachments: null, features: ['import'], nav: vi.fn(), toast: vi.fn(), openSheet: vi.fn(), refresh: vi.fn() }
   state.storeSnapshot = () => ({
     S: state.S,
     user: { id: 'u1' },
@@ -36,7 +36,7 @@ vi.mock('../store/useUI.js', () => {
 })
 vi.mock('react-router-dom', () => ({ useNavigate: () => mocks.nav }))
 vi.mock('../lib/coach-api.js', () => ({
-  useCoachStatus: () => ({ pending: mocks.pending, job: mocks.job, cap: null, loading: false, lastError: null, last: null, refresh: mocks.refresh, maxMessageLen: mocks.maxMessageLen, attachments: mocks.attachments }),
+  useCoachStatus: () => ({ pending: mocks.pending, job: mocks.job, cap: null, loading: false, lastError: null, last: null, refresh: mocks.refresh, maxMessageLen: mocks.maxMessageLen, attachments: mocks.attachments, features: mocks.features }),
   resolvePending: vi.fn(() => Promise.resolve({})),
   refinePlan: vi.fn(() => Promise.resolve({})),
   importProgram: vi.fn(() => Promise.resolve({})),
@@ -95,7 +95,7 @@ async function click(el) {
   await act(async () => { el.dispatchEvent(new dom.Event('click', { bubbles: true })) })
 }
 
-beforeEach(() => { vi.clearAllMocks() })
+beforeEach(() => { vi.clearAllMocks(); mocks.features = ['import'] })
 afterEach(async () => {
   if (root) { await act(async () => { root.unmount() }); root = null }
   container = null; dom = null
@@ -192,5 +192,47 @@ describe('importing a program in the Coach chat', () => {
     expect(line.text).toContain('“Example Split”')
     expect(S.coach.log.at(-1).kind).toBe('import')
     expect(resolvePending).toHaveBeenCalledWith({ accepted: ['import'] })
+  })
+
+  it('offers no import where the server does not list it', async () => {
+    mocks.attachments = CAP
+    mocks.features = undefined
+    await mount(null)
+    await pick([new File([PDF], 'program.pdf', { type: 'application/pdf' })])
+    expect(container.querySelector('.attach-mode')).toBeNull()
+    await click(container.querySelector('.send'))
+    expect(importProgram).not.toHaveBeenCalled()
+    expect(refinePlan).toHaveBeenCalledTimes(1)
+  })
+
+  it('puts the choice back to a plan request once the picked file is removed', async () => {
+    mocks.attachments = CAP
+    await mount(null)
+    await pick([new File([PDF], 'program.pdf', { type: 'application/pdf' })])
+    await click(byText(/Import to library/))
+    await click(container.querySelector('.attach-x'))
+    expect(container.querySelector('.attach-mode')).toBeNull()
+    await pick([new File([PDF], 'plan.pdf', { type: 'application/pdf' })])
+    await click(container.querySelector('.send'))
+    expect(importProgram).not.toHaveBeenCalled()
+    expect(refinePlan).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks before a message takes the place of a program waiting, and records it as turned down', async () => {
+    mocks.attachments = CAP
+    const S = state()
+    await mount(importProposal(), null, { S })
+    // The question comes before anything is sent, whatever the message is: here a plan request
+    // with a file (a typed message takes the same first branch of send()).
+    await pick([new File([PDF], 'plan.pdf', { type: 'application/pdf' })])
+    await click(container.querySelector('.send'))
+    expect(refinePlan).not.toHaveBeenCalled()
+    expect(requestReview).not.toHaveBeenCalled()
+    const opts = confirmSheet.mock.calls.at(-1)[0]
+    expect(opts.title).toMatch(/Replace the program waiting/)
+    await act(async () => { await opts.onConfirm() })
+    expect(refinePlan).toHaveBeenCalledTimes(1)
+    expect(S.coach.log.at(-1)).toMatchObject({ kind: 'import', proposalId: 'imp1', dismissed: true })
+    expect(S.coach.chat.some(m => m.kind === 'dismissed')).toBe(true)
   })
 })

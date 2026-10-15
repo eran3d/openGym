@@ -324,7 +324,13 @@ function finish(job, result) {
   // job still ran and still spent, which is why the instance log above keeps its line.
   if ((forgetSeq.get(job.uid) || 0) !== job.forgetSeq) return;
   const rec = readUser(job.uid);
-  const history = [...(rec.history || []), {
+  // An imported program waiting to be saved that this result takes the place of (a new answer,
+  // or "nothing to change") is recorded as turned down, as resolvePending records a Discard:
+  // a client that sent a message without asking first must not make it vanish without a trace.
+  const replaced = result.pending !== undefined && rec.pending?.kind === 'import' && rec.pending.id !== result.pending?.id
+    ? [{ id: rec.pending.id, kind: 'import', outcome: 'dismissed', accepted: 0, rejected: 0, at: Date.now() }]
+    : [];
+  const history = [...(rec.history || []), ...replaced, {
     id: job.id, kind: job.kind, trigger: job.trigger, outcome: result.outcome,
     errorClass: result.errorClass || null, at: Date.now(),
     // "Nothing to change" is an answer with a reason attached, and throwing the reason away
