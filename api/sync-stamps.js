@@ -31,6 +31,10 @@
 //      device changed it loses to that change, one that sends no record of edits at all (it never
 //      read a copy from an updated app) still wins as before, and the older app shows its own
 //      value until it next reads the profile;
+//   2b. for every writer: the routine folders merged with the stored ones, entry by entry, with the
+//      removals on record applied (mergeStoredFolders), and the names of the same reset joined
+//      (keepResetIds): an app from before folders that stamps its own changes drops both from its
+//      merge (docs/dev/ROUTINE_FOLDERS.md);
 //   3. for every writer: an entry the document holds while a removal on record says it was
 //      deleted after its last edit is kept, and marked as added back. An updated app never sends
 //      such a document, so this is an older app's merge (or its Coach undo, or a backup it
@@ -449,6 +453,78 @@ export function keepUnknown(cur, next) {
   return next;
 }
 
+// Step 2b, for every writer: the routine folders (docs/dev/ROUTINE_FOLDERS.md) merged with the
+// stored ones, entry by entry. An app from before folders that stamps its own changes (v1.4.x)
+// passes keepUnknown by, and its merge after a 409 takes `routineFolders` whole from the newer
+// copy and drops `deleted.routineFolders`: its push set a rename back, lost a new folder, and
+// brought a deleted one back for good (keepHeld then took it for a re-add). So the server does the
+// app's merge of that list itself: the union by id (the writer's order, or the stored one when the
+// writer's order stamp is older than the stored one, a folder only one side has next to its
+// neighbour there), each folder field by field (`_f`, mergeEntry), then the removals on record.
+// For an updated app this changes nothing: it sent the merge of the same two copies.
+export function mergeEntry(a, b) {
+  const [n, o] = (Number(b?._ts) || 0) > (Number(a?._ts) || 0) ? [b, a] : [a, b];
+  const out = clone(n);
+  const fn = isMap(n._f) ? n._f : {}, fo = isMap(o._f) ? o._f : {};
+  const f = { ...fo };
+  for (const [k, v] of Object.entries(fn)) if (!((Number(f[k]) || 0) > (Number(v) || 0))) f[k] = v;
+  for (const k of new Set([...Object.keys(n), ...Object.keys(o), ...Object.keys(f)])) {
+    if (ENTRY_META.has(k)) continue;
+    if ((Number(fo[k]) || 0) > (Number(fn[k]) || 0)) { if (k in o) out[k] = clone(o[k]); else delete out[k]; }
+  }
+  if (Object.keys(f).length) out._f = f; else delete out._f;
+  delete out._u;
+  const ts = Math.max(Number(a?._ts) || 0, Number(b?._ts) || 0);
+  if (ts) out._ts = ts;
+  return out;
+}
+function mergeStoredFolders(cur, next, sent) {
+  const mine = list(cur?.routineFolders).filter(x => isMap(x) && x.id != null);
+  const theirs = list(next.routineFolders).filter(x => isMap(x) && x.id != null);
+  if (!mine.length && !theirs.length) return;
+  const stale = (Number(sent?.[ORDERED.routineFolders]) || 0) < (Number(cur?.edited?.[ORDERED.routineFolders]) || 0);
+  const [lead, rest] = stale ? [mine, theirs] : [theirs, mine];
+  const by = new Map(rest.map(x => [x.id, x]));
+  const leadIds = new Set(lead.map(x => x.id));
+  const out = neighbours(lead, rest).map(x => {
+    const other = leadIds.has(x.id) ? by.get(x.id) : null;
+    if (!other) return clone(x);
+    const a = stale ? other : x, b = stale ? x : other;   // the writer's version first, as on a tie
+    return mergeEntry(a, b);
+  });
+  const gone = isMap(next.deleted?.routineFolders) ? next.deleted.routineFolders : {};
+  next.routineFolders = out.filter(x => { const at = Number(gone[String(x.id)]) || 0; return !(at > 0 && at >= (Number(x._ts) || 0)); });
+}
+// The names of the same reset (equal `resetAt`) from the stored copy and the written one: a writer
+// keeps only the fields it knows of (sync-merge.js mergeResetIds), so the others come back here.
+const RESET_ID_MAX = 20000;
+function keepResetIds(cur, next) {
+  const at = Number(cur?.resetAt) || 0;
+  if (!at || at !== (Number(next.resetAt) || 0) || !isMap(cur.resetIds)) return;
+  const ids = isMap(next.resetIds) ? next.resetIds : {};
+  for (const [f, xs] of Object.entries(cur.resetIds)) {
+    if (!Array.isArray(xs)) continue;
+    const all = [...new Set([...list(ids[f]), ...xs].filter(k => k != null).map(String))];
+    if (all.length) ids[f] = all.length > RESET_ID_MAX ? all.slice(all.length - RESET_ID_MAX) : all;
+  }
+  if (Object.keys(ids).length) next.resetIds = ids;
+}
+// `lead` in its order, each entry only `rest` has after its nearest earlier neighbour in `rest`.
+function neighbours(lead, rest) {
+  const out = lead.slice();
+  const at = new Set(out.map(x => x.id));
+  let prev = null;
+  for (const x of rest) {
+    if (!at.has(x.id)) {
+      const i = prev == null ? -1 : out.findIndex(y => y.id === prev);
+      out.splice(i + 1, 0, x);
+      at.add(x.id);
+    }
+    prev = x.id;
+  }
+  return out;
+}
+
 // Step 3: an entry held while a removal on record says it was deleted after its last edit is
 // kept, and marked as added back.
 function keepHeld(next, now) {
@@ -514,6 +590,12 @@ export function stampPut(cur, next, { overRead = false, stamped = false, now = D
       if (rec) next._unstamped = rec;
     }
     if (before != null && content(next) !== before) report.changed = true;
+    // For every writer (step 2b above), and the names a reset wiped: a writer from before folders
+    // drops `resetIds.routineFolders` from its merge of the same reset.
+    const folders = report ? content(next.routineFolders ?? null) : null;
+    mergeStoredFolders(cur, next, sent);
+    if (folders != null && content(next.routineFolders ?? null) !== folders) report.changed = true;
+    keepResetIds(cur, next);
   }
   keepHeld(next, t);
   if (cur && !reset) notePrior(cur, next);

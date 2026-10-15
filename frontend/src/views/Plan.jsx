@@ -23,7 +23,7 @@ import { queueOf, queueView } from '../lib/queue.js'
 import { deriveSessionName } from '../lib/session-merge.js'
 import { markUndone, undoMarks } from '../lib/sync-merge.js'
 import {
-  addFolder, deleteFolder, folderIdOf, groupRoutines, moveFolder, moveInGroup, moveToFolder, renameFolder,
+  addFolder, canAddFolder, deleteFolder, folderIdOf, folderLabel, foldersOf, groupRoutines, moveFolder, moveInGroup, moveToFolder, renameFolder,
 } from '../lib/routine-folders.js'
 import {
   scheduleModeOf, queueRecovery, rotationIds, saveRotation, startNewPass, startPass, stopPass,
@@ -394,8 +394,10 @@ function Routines({ S, update, nav }) {
   const [edit, setEdit] = useState(false)
   const [flash, setFlash] = useState(null)
   const [closed, setClosedState] = useState(readClosed)
+  // Only folders that still exist stay on record: one deleted here or elsewhere is let go.
   const toggle = id => {
-    const next = closed.includes(id) ? closed.filter(x => x !== id) : [...closed, id]
+    const live = new Set(foldersOf(S).map(f => f.id))
+    const next = (closed.includes(id) ? closed.filter(x => x !== id) : [...closed, id]).filter(x => live.has(x))
     setClosedState(next)
     try { localStorage.setItem(FOLDERS_CLOSED_KEY, JSON.stringify(next)) } catch { /* private mode: not remembered */ }
   }
@@ -437,11 +439,11 @@ function Routines({ S, update, nav }) {
 
   const newFolder = () => folderNameSheet({ title: t('New folder'), onSave: name => update(s => { addFolder(s, name) }) })
   const folderMenu = f => menuSheet({
-    title: f.name,
+    title: folderLabel(f),
     items: [
-      { icon: 'pencil', label: t('Rename folder'), onClick: () => folderNameSheet({ title: t('Rename folder'), value: f.name, onSave: name => update(s => { renameFolder(s, f.id, name) }) }) },
+      { icon: 'pencil', label: t('Rename folder'), onClick: () => folderNameSheet({ title: t('Rename folder'), value: folderLabel(f), onSave: name => update(s => { renameFolder(s, f.id, name) }) }) },
       { icon: 'trash', label: t('Delete folder'), danger: true, onClick: () => confirmSheet({
-        title: t('Delete “{0}”?', f.name),
+        title: t('Delete “{0}”?', folderLabel(f)),
         message: t('The routines in it stay. They just move out of the folder.'),
         confirmText: t('Delete folder'), danger: true,
         onConfirm: () => update(s => { deleteFolder(s, f.id) }),
@@ -455,8 +457,8 @@ function Routines({ S, update, nav }) {
       title: t('Move to folder'), subtitle: r.name,
       items: [
         { icon: 'list', label: t('Not in a folder'), on: cur == null, onClick: () => update(s => { moveToFolder(s, r.id, null) }) },
-        ...folders.map(({ folder: f }) => ({ icon: 'folder', label: f.name, on: cur === f.id, onClick: () => update(s => { moveToFolder(s, r.id, f.id) }) })),
-        { icon: 'plus', label: t('New folder'), onClick: () => folderNameSheet({ title: t('New folder'), onSave: name => update(s => {
+        ...folders.map(({ folder: f }) => ({ icon: 'folder', label: folderLabel(f), on: cur === f.id, onClick: () => update(s => { moveToFolder(s, r.id, f.id) }) })),
+        canAddFolder(S) && { icon: 'plus', label: t('New folder'), onClick: () => folderNameSheet({ title: t('New folder'), onSave: name => update(s => {
           const f = addFolder(s, name)
           if (f) moveToFolder(s, r.id, f.id)
         }) }) },
@@ -472,29 +474,30 @@ function Routines({ S, update, nav }) {
         ? <button className="plan-textbtn" aria-pressed={edit} onClick={() => setEdit(e => !e)}>{edit ? t('Done') : t('Edit')}</button>
         : <span />}
       <div className="row plan-sec-acts" style={{ gap: 6 }}>
-        <Button size="sm" variant="tinted" icon="folder" onClick={newFolder}>{t('New folder')}</Button>
+        <Button size="sm" variant="tinted" icon="folder" disabled={!canAddFolder(S)} onClick={newFolder}>{t('New folder')}</Button>
         <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New routine')}</Button>
       </div>
     </div>
     {routines.length || folders.length ? <>
       {(loose.length > 0 || !folders.length) && group(null, loose)}
       {folders.map(({ folder: f, routines: rs }, i) => {
-        const open = !closed.includes(f.id)
-        return <section key={f.id} className="plan-folder" aria-label={f.name}>
+        // Edit shows every folder open: a routine in a closed one could not be moved or deleted.
+        const open = edit || !closed.includes(f.id)
+        return <section key={f.id} className="plan-folder" aria-label={folderLabel(f)}>
           <div className="row plan-folder-h">
-            <button className="plan-folder-t" aria-expanded={open} onClick={() => toggle(f.id)}>
-              <Icon name={open ? 'chevronDown' : 'chevronRight'} className="plan-folder-chev" />
+            <button className="plan-folder-t" aria-expanded={edit ? undefined : open} disabled={edit} onClick={() => toggle(f.id)}>
+              {!edit && <Icon name={open ? 'chevronDown' : 'chevronRight'} className="plan-folder-chev" />}
               <Icon name="folder" />
-              <span className="plan-folder-name">{f.name}</span>
+              <span className="plan-folder-name">{folderLabel(f)}</span>
               <span className="plan-folder-n">{rs.length}</span>
             </button>
             {edit && folders.length > 1 && <>
-              <button className="iconbtn plan-folder-mv" aria-label={t('Move {0} up', f.name)} title={t('Move up')}
+              <button className="iconbtn plan-folder-mv" aria-label={t('Move {0} up', folderLabel(f))} title={t('Move up')}
                 disabled={i === 0} onClick={() => update(s => { moveFolder(s, f.id, -1) })}><Icon name="arrowUp" /></button>
-              <button className="iconbtn plan-folder-mv" aria-label={t('Move {0} down', f.name)} title={t('Move down')}
+              <button className="iconbtn plan-folder-mv" aria-label={t('Move {0} down', folderLabel(f))} title={t('Move down')}
                 disabled={i === folders.length - 1} onClick={() => update(s => { moveFolder(s, f.id, 1) })}><Icon name="arrowDown" /></button>
             </>}
-            <button className="iconbtn plan-folder-mv" aria-label={t('Folder options for {0}', f.name)} title={t('Folder options')}
+            <button className="iconbtn plan-folder-mv" aria-label={t('Folder options for {0}', folderLabel(f))} title={t('Folder options')}
               onClick={() => folderMenu(f)}><Icon name="more" /></button>
           </div>
           {open && (rs.length

@@ -63,6 +63,27 @@ describe('routine folders in Plan', () => {
     expect(lists()[1]).toEqual(['Push', 'Pull'])
   })
 
+  it('Edit opens every folder, so a routine in a closed one can still be moved or deleted', () => {
+    localStorage.setItem(FOLDERS_CLOSED_KEY, JSON.stringify(['F', 'G', 'deleted-long-ago']))
+    mount()
+    expect(lists()).toEqual([['Stretch', 'Lost']])
+    click(button('Edit'))
+    expect(lists()).toEqual([['Stretch', 'Lost'], ['Push', 'Pull'], ['Bands']])
+    expect(host.querySelector('button[aria-label="Delete Pull"]')).not.toBe(null)
+    expect(folderHeads()[0].disabled).toBe(true)
+    click(button('Done'))
+    expect(lists()).toEqual([['Stretch', 'Lost']])
+    // a toggle keeps only folders that still exist
+    click(folderHeads()[0])
+    expect(JSON.parse(localStorage.getItem(FOLDERS_CLOSED_KEY))).toEqual(['G'])
+  })
+
+  it('New folder is off at the cap', () => {
+    useStore.setState(s => ({ S: { ...s.S, routineFolders: Array.from({ length: 50 }, (_, i) => ({ id: 'f' + i, name: 'F' + i })) } }))
+    mount()
+    expect(button('New folder').disabled).toBe(true)
+  })
+
   it('Edit: the folder button moves a routine, the arrows reorder folders, a handle stays in its group', () => {
     mount()
     click(button('Edit'))

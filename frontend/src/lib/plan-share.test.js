@@ -332,6 +332,13 @@ describe('plan-share folders', () => {
     const n = target.routineFolders[1].id
     expect(target.routines.map(r => r.folder)).toEqual(['mine', undefined, n])
   })
+  it('import stops adding folders at the cap; those routines stay in none', () => {
+    const full = Array.from({ length: 50 }, (_, i) => ({ id: 'm' + i, name: 'Mine ' + i }))
+    const target = { unit: 'kg', week: {}, customEx: [], routines: [], routineFolders: full }
+    mergePlan(target, parsePlan(JSON.stringify(buildPlanBundle(source(), 'Plan'))))
+    expect(target.routineFolders).toHaveLength(50)
+    expect(target.routines.every(r => !('folder' in r))).toBe(true)
+  })
   it('an older plan file without folders imports as before', () => {
     const target = { unit: 'kg', week: {}, customEx: [], routines: [] }
     mergePlan(target, parsePlan(JSON.stringify(buildPlanBundle({ ...source(), routineFolders: [] }, 'Plan'))))

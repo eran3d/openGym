@@ -21,7 +21,7 @@ import { t, exerciseNameFor, exerciseNameClass, getLang, RTL_LANGS } from './i18
 import { convertWeight } from './units.js'
 import { fmtSpeed, speedUnitOf } from './speed.js'
 import { MUSCLES, inMuscleOrder } from './muscles.js'
-import { addFolder, cleanFolderName, folderIdOf, foldersOf } from './routine-folders.js'
+import { addFolder, cleanFolderName, folderIdOf, folderLabel, foldersOf } from './routine-folders.js'
 
 const PLAN_FMT = 1
 const WEEK_DAYS = [1, 2, 3, 4, 5, 6, 0]   // every getDay() index; only the reader's own
@@ -204,7 +204,7 @@ export function buildPlanBundle(S, name) {
   // The folders those routines are in (lib/routine-folders.js), so the friend's Plan groups them
   // the same way. An importer from before folders ignores both.
   const inUse = new Set(routines.map(r => r.folder).filter(Boolean))
-  const folders = foldersOf(S).filter(f => inUse.has(f.id)).map(f => ({ id: f.id, name: f.name }))
+  const folders = foldersOf(S).filter(f => inUse.has(f.id) && folderLabel(f)).map(f => ({ id: f.id, name: folderLabel(f) }))
   const usedIds = new Set(routines.flatMap(r => r.ex.map(e => e.id)))
   const customEx = (S.customEx || [])
     .filter(c => usedIds.has(c.id))

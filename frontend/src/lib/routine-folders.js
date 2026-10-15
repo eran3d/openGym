@@ -13,6 +13,9 @@
 import { uid } from './format.js'
 
 export const FOLDER_NAME_MAX = 40
+// The most folders a profile keeps: past it New folder is off, and a plan file's extra folders
+// leave their routines in none. Far more than a plan needs, and a bound on the list all the same.
+export const FOLDER_MAX = 50
 
 const list = v => (Array.isArray(v) ? v : [])
 
@@ -21,6 +24,13 @@ export const foldersOf = S => list(S?.routineFolders).filter(f => f && typeof f 
 
 /** A typed name made fit to keep: trimmed, inner runs of spaces folded, capped. */
 export const cleanFolderName = name => String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, FOLDER_NAME_MAX)
+
+/** A folder's name as shown: what another device or an API client wrote, held to the same limit.
+ *  Two folders may share a name; they are told apart by their id only. */
+export const folderLabel = f => cleanFolderName(f?.name)
+
+/** Whether another folder can be added. */
+export const canAddFolder = S => foldersOf(S).length < FOLDER_MAX
 
 /** The id of the folder `r` is in, or null when it is in none that exists. */
 export function folderIdOf(S, r) {
@@ -48,7 +58,7 @@ export function groupRoutines(S) {
 /** Adds a folder at the end and returns it, or null for an empty name. */
 export function addFolder(s, name) {
   const n = cleanFolderName(name)
-  if (!n) return null
+  if (!n || !canAddFolder(s)) return null
   const folder = { id: uid(), name: n }
   s.routineFolders = [...foldersOf(s), folder]
   return folder

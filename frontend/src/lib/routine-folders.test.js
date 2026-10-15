@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addFolder, cleanFolderName, deleteFolder, folderIdOf, foldersOf, groupRoutines, moveFolder,
-  moveInGroup, moveToFolder, renameFolder, FOLDER_NAME_MAX,
+  moveInGroup, moveToFolder, renameFolder, FOLDER_NAME_MAX, FOLDER_MAX, canAddFolder, folderLabel,
 } from './routine-folders.js'
 
 const r = (id, folder) => ({ id, name: id, ex: [], ...(folder ? { folder } : {}) })
@@ -43,6 +43,15 @@ describe('changing folders', () => {
     expect(s.routineFolders.map(x => x.id).at(-1)).toBe(f.id)
     expect(addFolder(s, '   ')).toBe(null)
     expect(addFolder({}, 'First').name).toBe('First')
+  })
+  it('stops at the cap, and shows a stored name held to the limit', () => {
+    const s = { routineFolders: Array.from({ length: FOLDER_MAX }, (_, i) => ({ id: 'f' + i, name: 'F' })) }
+    expect(canAddFolder(s)).toBe(false)
+    expect(addFolder(s, 'One more')).toBe(null)
+    expect(s.routineFolders).toHaveLength(FOLDER_MAX)
+    expect(folderLabel({ id: 'x', name: '  a   b ' + 'c'.repeat(80) })).toHaveLength(FOLDER_NAME_MAX)
+    expect(folderLabel({ id: 'x', name: 42 })).toBe('42')
+    expect(folderLabel({ id: 'x' })).toBe('')
   })
   it('renames', () => {
     const s = state()

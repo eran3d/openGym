@@ -117,7 +117,7 @@ export const listRoutines = {
     if (!S) return noState()
     // A routine's folder (Plan groups routines in folders): its name, or null when it is in none
     // that exists. docs/dev/ROUTINE_FOLDERS.md.
-    const folderName = new Map((Array.isArray(S.routineFolders) ? S.routineFolders : []).filter(f => f && f.id != null).map(f => [f.id, f.name || '']))
+    const folderName = new Map((Array.isArray(S.routineFolders) ? S.routineFolders : []).filter(f => f && f.id != null).map(f => [f.id, String(f.name ?? '').replace(/\s+/g, ' ').trim().slice(0, 40)]))
     return {
       unit: S.unit || 'kg',
       routines: (S.routines || []).map(r => ({
