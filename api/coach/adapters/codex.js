@@ -30,6 +30,9 @@ export default {
   id: 'codex',
   spawns: true,
   cli: CLI,
+  // `codex exec -` reads one prompt from stdin. A file would have to go through its sandbox and
+  // a tool to read it, which is a wider grant than this adapter makes; so no attachments.
+  attachmentTypes: null,
 
   async check(cfg, env) {
     const r = await run(CLI, ['--version'], { env, timeoutMs: 20000 });
@@ -39,7 +42,8 @@ export default {
     return { ok: true, version: (r.stdout || '').trim() };
   },
 
-  async invoke({ prompt, jobDir, env, model, timeoutMs }) {
+  async invoke({ prompt, jobDir, env, model, timeoutMs, attachments }) {
+    if (attachments && attachments.length) return { code: 1, text: '', stderr: 'codex cannot read attachments', timedOut: false, spawnError: false };
     const argv = argvFor(model);
     // $CODEX_HOME itself is still set (config.jobEnv), because that is where the CLI keeps its
     // refreshable login cache and a job whose HOME is a temp dir would otherwise find no login

@@ -11,6 +11,7 @@ import { adapterFor } from './adapters/index.js';
 import { canDropPrivileges } from './adapters/spawn.js';
 import { DATA_CATEGORIES } from './core/payload.js';
 import { validateBaseUrl, validateHeaders, baseUrlFor } from './core/providers.js';
+import { limitsOf as attachmentLimits, MAX_BYTES_FLOOR, MAX_TOTAL_BYTES_CEILING, MAX_COUNT_CEILING } from './attachments.js';
 
 // Job failures the user sees, in the app's own voice. The raw provider detail never reaches
 // them — it goes to the admin card, which is where someone can act on it (FR-47).
@@ -22,9 +23,11 @@ const USER_ERROR = {
   // Verbatim, because it tells the user the one thing that resolves it and names who resolves
   // it. A vaguer message here turns into a support question for the person running the box.
   shared: cfgStore.SHARED_ACCOUNT_REFUSAL,
-  unprivileged: 'the Coach is switched off on this instance for safety reasons'
+  unprivileged: 'the Coach is switched off on this instance for safety reasons',
+  // The specific reason rides beside it (`reason`), for the app to translate.
+  attachments: 'the Coach cannot take that attachment'
 };
-const HTTP_FOR = { off: 503, busy: 409, cap: 429, consent: 403, shared: 409, unprivileged: 503 };
+const HTTP_FOR = { off: 503, busy: 409, cap: 429, consent: 403, shared: 409, unprivileged: 503, attachments: 400 };
 
 export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
   /** Every user route starts the same way: signed in, feature on, feature reachable. The class
@@ -37,7 +40,9 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
     return user;
   };
   const failEnqueue = (res, e) => {
-    if (e instanceof jobs.CoachError) return json(res, HTTP_FOR[e.code] || 400, { error: USER_ERROR[e.code] || e.message, code: e.code });
+    if (e instanceof jobs.CoachError) {
+      return json(res, e.status || HTTP_FOR[e.code] || 400, { error: USER_ERROR[e.code] || e.message, code: e.code, ...(e.reason ? { reason: e.reason } : {}) });
+    }
     throw e;
   };
 
@@ -63,7 +68,10 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
       const user = guard(req, res); if (!user) return;
       // The chat composer's maxLength rides on this poll rather than a one-off fetch, so an
       // admin raising or lowering the limit reaches an open chat within one poll cycle.
-      json(res, 200, { ...jobs.status(user.id), maxMessageLen: cfgStore.load().maxMessageLen });
+      // `attachments` likewise: switching to a provider that cannot read files takes the attach
+      // button away from an open chat on the next poll.
+      const cfg = cfgStore.load();
+      json(res, 200, { ...jobs.status(user.id), maxMessageLen: cfg.maxMessageLen, attachments: jobs.attachmentsFor(cfg) });
     },
 
     'POST /api/coach/plan': async (req, res) => {
@@ -77,7 +85,9 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
           kind: 'create',
           intake: body.intake || null,
           lang: body.lang,
-          refine: body.refine ? String(body.refine).slice(0, cfgStore.MAX_MESSAGE_LEN_CEILING) : null
+          refine: body.refine ? String(body.refine).slice(0, cfgStore.MAX_MESSAGE_LEN_CEILING) : null,
+          // Checked (type, size, count, magic bytes) in enqueue, before the cap is spent.
+          attachments: body.attachments
         });
         json(res, 202, { job });
       } catch (e) { failEnqueue(res, e); }
@@ -173,6 +183,8 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
         caps: cfg.caps,
         maxMessageLen: cfg.maxMessageLen,
         maxOutputTokens: cfg.maxOutputTokens,
+        // The admin's limits, and whether the active provider can read files at all.
+        attachments: { ...attachmentLimits(cfg), supported: !!jobs.attachmentsFor(cfg) },
         community: !!cfg.community,
         runtime: { ok: !!check.ok, version: check.version || null, error: check.error || null, needsKey: !!check.needsKey },
         authMode: cfg.authMode,
@@ -259,6 +271,18 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
           cfgStore.MAX_OUTPUT_TOKENS_FLOOR,
           Math.min(cfgStore.MAX_OUTPUT_TOKENS_CEILING, +body.maxOutputTokens || current.maxOutputTokens)
         );
+      }
+      if (body.attachments !== undefined) {
+        if (!body.attachments || typeof body.attachments !== 'object') return json(res, 400, { error: 'attachments must be an object' });
+        const cur = attachmentLimits(current);
+        const a = body.attachments;
+        const num = (v, d) => (v === undefined || v === null || v === '' || !Number.isFinite(+v) ? d : Math.floor(+v));
+        const maxTotalBytes = Math.max(MAX_BYTES_FLOOR, Math.min(MAX_TOTAL_BYTES_CEILING, num(a.maxTotalBytes, cur.maxTotalBytes)));
+        patch.attachments = {
+          maxCount: Math.max(0, Math.min(MAX_COUNT_CEILING, num(a.maxCount, cur.maxCount))),
+          maxBytes: Math.max(MAX_BYTES_FLOOR, Math.min(maxTotalBytes, num(a.maxBytes, cur.maxBytes))),
+          maxTotalBytes
+        };
       }
       cfgStore.save(patch);
       json(res, 200, { ok: true });

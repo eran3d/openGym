@@ -7,10 +7,15 @@
 import { httpAdapter } from './http.js';
 import { SYSTEM_PROMPT } from '../system-prompt.js';
 
-export function chatCompletionsSpec(id, { maxTokensField = 'max_completion_tokens', temperature = null, versionlessFallback = false } = {}) {
+// What OpenAI's own Chat Completions reads as message parts. An OpenAI-compatible server is
+// whatever is behind it, so `compatible` claims nothing and its users get no attach button.
+const OPENAI_ATTACHMENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+
+export function chatCompletionsSpec(id, { maxTokensField = 'max_completion_tokens', temperature = null, versionlessFallback = false, attachments = false } = {}) {
   return {
     id,
     versionlessFallback,
+    attachmentTypes: attachments ? OPENAI_ATTACHMENT_TYPES : null,
     path: () => '/v1/chat/completions',
     modelsPath: '/v1/models',
     headers: key => (key ? { authorization: 'Bearer ' + key } : {}),
@@ -18,11 +23,11 @@ export function chatCompletionsSpec(id, { maxTokensField = 'max_completion_token
     // llama.cpp/Ollama endpoint can reuse its KV prefix cache and only ever re-processes the
     // payload. A schema, when given, turns JSON mode into grammar-constrained decoding —
     // the answer cannot leave the shape, which is most of what the repair round used to fix.
-    body: ({ model, prompt, system, schema, maxTokens }) => ({
+    body: ({ model, prompt, system, schema, maxTokens, attachments }) => ({
       model,
       messages: [
         { role: 'system', content: system ? SYSTEM_PROMPT + '\n\n' + system : SYSTEM_PROMPT },
-        { role: 'user', content: prompt }
+        { role: 'user', content: attachments && attachments.length ? [...openaiParts(attachments), { type: 'text', text: prompt }] : prompt }
       ],
       ...(temperature != null ? { temperature } : {}),
       response_format: schema
@@ -63,5 +68,15 @@ export function chatCompletionsSpec(id, { maxTokensField = 'max_completion_token
 const NOT_CHAT = /realtime|audio|tts|transcri|whisper|embedding|image|dall-e|moderation|search|instruct|codex|computer-use|deep-research|-pro(?:-|$)|davinci|babbage|curie|ada/i;
 export const isChatModel = id => /^(gpt-|o\d|chatgpt-)/.test(id) && !NOT_CHAT.test(id);
 
-export const openaiSpec = chatCompletionsSpec('openai');
+/** Attachments as Chat Completions content parts: a PDF as a `file` part, an image as a data URL. */
+export function openaiParts(attachments) {
+  return (attachments || []).map(a => {
+    const url = `data:${a.mediaType};base64,${a.data}`;
+    return a.mediaType === 'application/pdf'
+      ? { type: 'file', file: { filename: a.name || 'attachment.pdf', file_data: url } }
+      : { type: 'image_url', image_url: { url } };
+  });
+}
+
+export const openaiSpec = chatCompletionsSpec('openai', { attachments: true });
 export default httpAdapter(openaiSpec);

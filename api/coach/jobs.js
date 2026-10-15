@@ -27,6 +27,7 @@ import { handleFor } from './handle.js';
 import { fetchFor } from './node-fetch.js';
 import { canDropPrivileges, unprivilegedIds } from './adapters/spawn.js';
 import { cohortForPayload, invalidate as invalidateCohort } from './cohort.js';
+import { capability as attachmentCapability, checkAttachments, describe as describeAttachments } from './attachments.js';
 
 // The prompt assembly, the plan fingerprint and the invoke→parse→validate→repair loop all
 // live in ./core now, where the phone can import them too. Re-exported so nothing that
@@ -173,7 +174,7 @@ const forgetSeq = new Map();    // uid → bumped by every clearUser; a job carr
 const aborts = new Map();       // uid → AbortController of the provider call in flight, for clearUser to pull
 
 class CoachError extends Error {
-  constructor(code, message) { super(message); this.code = code; }
+  constructor(code, message, extra) { super(message); this.code = code; Object.assign(this, extra); }
 }
 export { CoachError };
 
@@ -190,9 +191,14 @@ export function clampMessage(text) {
   return String(text).slice(0, max);
 }
 
+/** What this instance accepts as attachments right now, or null (provider cannot read files). */
+export function attachmentsFor(cfg = cfgStore.load()) {
+  return attachmentCapability(cfg, adapterFor(cfg.provider));
+}
+
 /**
  * Enqueue a job. Throws CoachError with a code the routes layer maps to an HTTP status:
- * `off`, `busy`, `cap`, `consent`.
+ * `off`, `busy`, `cap`, `consent`, `attachments`.
  */
 export function enqueue(uid, opts) {
   if (!cfgStore.isEnabled() || !cfgStore.isConnected()) throw new CoachError('off', 'the Coach is not set up on this instance');
@@ -224,6 +230,17 @@ export function enqueue(uid, opts) {
     if (!priv.ok) throw new CoachError('unprivileged', `Coach jobs are disabled: ${priv.why}`);
   }
 
+  // Before the cap is bumped: a file the provider cannot read, or one over the limits, is the
+  // client's mistake and must not cost a run. Only a plan request reads attachments.
+  let attachments = [];
+  if (opts.attachments != null) {
+    const checked = opts.kind === 'create'
+      ? checkAttachments(opts.attachments, attachmentsFor())
+      : { ok: false, reason: 'unsupported', status: 400 };
+    if (!checked.ok) throw new CoachError('attachments', `attachment refused: ${checked.reason}`, { reason: checked.reason, status: checked.status });
+    attachments = checked.value;
+  }
+
   const caps = cfgStore.load().caps || {};
   const { used, limit } = capState(uid);
   if (limit > 0 && used >= limit) throw new CoachError('cap', 'daily limit reached');
@@ -246,6 +263,8 @@ export function enqueue(uid, opts) {
     note: clampMessage(opts.note),
     refine: clampMessage(opts.refine),
     lang: payloadLib.langTag(opts.lang),              // the language the app was showing (#303)
+    // In memory only, and dropped when the job ends: never in the user file, the log or a detail.
+    attachments,
     state: 'queued',
     startedAt: Date.now()
   };
@@ -339,6 +358,7 @@ async function execute(job) {
     refine: job.refine,
     previous: pendingCreate?.bundle || null,
     workoutId: job.workoutId,
+    attachments: describeAttachments(job.attachments),
     // The app says which language it is in. A scheduled review has no app behind it: a profile
     // that never picked a language then gets the instance's DEFAULT_LANG, like its screens do.
     lang: job.lang || (S.langAuto === true ? payloadLib.langTag(process.env.DEFAULT_LANG) : null),
@@ -367,7 +387,10 @@ async function execute(job) {
       adapter, cfg, kind: job.kind, payload, model: cfgStore.modelFor(cfg), timeoutMs: TIMEOUT_MS,
       // The HTTP adapters take the fetch and the abort signal they are given; the runtime
       // adapters ignore both.
-      invokeOpts: { jobDir, env, fetch: fetchFor(TIMEOUT_MS), signal: ctl.signal, maxTokens: cfg.maxOutputTokens }
+      invokeOpts: {
+        jobDir, env, fetch: fetchFor(TIMEOUT_MS), signal: ctl.signal, maxTokens: cfg.maxOutputTokens,
+        ...(job.attachments.length ? { attachments: job.attachments } : {})
+      }
     });
     if (!attempt.ok) {
       // Cancelled by a forget, not failed by the provider: the log must not blame the job budget.
@@ -391,6 +414,7 @@ async function execute(job) {
     return finish(job, { outcome: 'ready', pending });
   } finally {
     aborts.delete(job.uid);
+    job.attachments = [];
     if (jobDir) removeJobDir(jobDir, unprivilegedIds());
   }
 }

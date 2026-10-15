@@ -193,6 +193,23 @@ score out of ten, what went well, what to watch, and what to do next time, each 
 session's own numbers. A debrief cannot carry a change; an answer that tries is refused by the
 validator rather than trimmed. The card is kept in the Coach's history like everything else.
 
+### Handing the Coach a plan you already have
+
+When the provider can read files (Anthropic, OpenAI, Gemini, the Claude Agent SDK, and the
+fixture), the chat composer has a paperclip. Attach a PDF, or a JPEG or PNG photo of a plan, and
+the message goes out as a plan request with the file beside it: the model reads the file itself
+and builds a plan from it, with exercises from the library and your equipment and limitations
+still in charge. Codex and an OpenAI-compatible endpoint get no paperclip; the server refuses
+files for them as well.
+
+The admin sets the limits on the AI Coach card (**Advanced**): files per message (default 3,
+0 switches attachments off), size per file (default 3 MB) and per request (default and maximum
+3.5 MB, which is what still fits the 5 MB request body once base64 has added its third). A file
+must be what its type says: a PDF has to start like one. A message with files is one run against
+the daily caps like any other. The file is sent to the provider with that one job and the repair
+round, held in memory only, and never stored: not in your synced state, not in the Coach's
+records, not in the job log. The chat keeps the file's name.
+
 ### Comparing with others on the instance
 
 Off unless the admin turns it on (**Settings → Account → Admin dashboard**, the **AI Coach** card →
@@ -259,6 +276,9 @@ renders from, so the screen cannot drift from the payload — are:
 | `profile` | the intake answers you gave the Coach, including any limitations |
 | `cohort` (optional) | only with comparison on and your own opt-in: anonymous medians from the other people sharing — never their data, and never yours to them beyond the same medians |
 | `prefs` | unit, language, effort scale |
+
+Beyond these, a file you attach to a plan request yourself goes to the provider with that one
+request (see [Handing the Coach a plan you already have](#handing-the-coach-a-plan-you-already-have)).
 
 A review reads a training block, not a training career: the window is capped at **12 weeks or 60
 sessions**. Your profile is identified by a stable pseudonym that is never the user id and never

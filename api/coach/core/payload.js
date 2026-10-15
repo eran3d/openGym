@@ -472,7 +472,7 @@ export function workoutMeta(S, workoutId) {
  * Build a job payload.
  *
  * @param {object} S      the profile's synced state
- * @param {object} opts   { handle, kind, intake?, note?, refine?, previous?, workoutId?, cohort?, lang? }
+ * @param {object} opts   { handle, kind, intake?, note?, refine?, previous?, workoutId?, cohort?, lang?, attachments? }
  *
  * `handle` is the opaque per-profile pseudonym the payload carries instead of a uid. It is
  * supplied rather than derived because the two runtimes mint it differently: the server keys
@@ -578,6 +578,12 @@ export function build(S, opts = {}) {
       // revision of a plan that does not exist — refine.md would be reading `previous: null`.
       p.userNote = String(opts.refine).slice(0, MAX_NOTE_CHARS);
     }
+  }
+  // Files attached to this request (a PDF or a photo of a plan). Their content travels beside
+  // the payload, as the provider's own document/image parts; this only tells the model they are
+  // there and what they are called. Names and types, never bytes.
+  if (opts.kind === 'create' && Array.isArray(opts.attachments) && opts.attachments.length) {
+    p.attachments = opts.attachments.slice(0, 5).map(a => ({ name: text(a && a.name, NAME_MAX), mediaType: word(a && a.mediaType, 40) }));
   }
   if (opts.kind !== 'debrief') {
     const said = conversation(coach, [opts.note, opts.refine]);

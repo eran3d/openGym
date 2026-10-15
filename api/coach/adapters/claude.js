@@ -29,6 +29,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { unprivilegedIds } from './spawn.js';
 import { SYSTEM_PROMPT } from '../core/system-prompt.js';
+import { anthropicParts } from '../core/adapters/anthropic.js';
 
 const PKG = '@anthropic-ai/claude-agent-sdk';
 const require_ = createRequire(import.meta.url);
@@ -49,6 +50,20 @@ export const LOCKDOWN = Object.freeze({
   permissionMode: 'dontAsk',
   maxTurns: 1
 });
+
+/* Attachments go in as content blocks on the user message, the same `document` and `image`
+   blocks the Messages API takes. The SDK accepts its prompt as a stream of user messages for
+   exactly this, and that keeps LOCKDOWN intact: the alternative, writing the file into the job
+   directory and letting the model open it with `Read`, would hand it a filesystem tool. */
+async function* userMessage(prompt, attachments) {
+  yield {
+    type: 'user',
+    message: { role: 'user', content: [...anthropicParts(attachments), { type: 'text', text: prompt }] },
+    parent_tool_use_id: null
+  };
+}
+/** What `query` is given as its prompt: the plain string, or one user message with the files. */
+export const promptFor = (prompt, attachments) => (attachments && attachments.length ? userMessage(prompt, attachments) : prompt);
 
 let cached;
 /** Resolve the SDK, or null when this image was built without it. Never throws. */
@@ -80,6 +95,7 @@ export default {
   id: 'claude',
   spawns: true,
   runtime: 'Claude Agent SDK',
+  attachmentTypes: ['application/pdf', 'image/jpeg', 'image/png'],
 
   /* Importing the package is the check: it is exactly what a job will do, and it is the one
      difference between the two build targets. The credential is deliberately not probed here —
@@ -92,7 +108,7 @@ export default {
     return { ok: true, version: v ? `Claude Agent SDK ${v}` : 'Claude Agent SDK' };
   },
 
-  async invoke({ prompt, jobDir, env, model, timeoutMs }) {
+  async invoke({ prompt, jobDir, env, model, timeoutMs, attachments }) {
     const m = await sdk();
     if (!m) return { code: -1, text: '', stderr: `${PKG} is not installed`, timedOut: false, spawnError: true };
 
@@ -102,7 +118,7 @@ export default {
 
     try {
       for await (const message of m.query({
-        prompt,
+        prompt: promptFor(prompt, attachments),
         options: {
           ...LOCKDOWN,
           abortController,

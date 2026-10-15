@@ -2499,6 +2499,12 @@ paths:
         the intake screen; with `refine` it reworks the proposal already waiting, in the
         words of the person reading it. The answer is 202 and a job id; the result
         arrives through `GET /api/coach/status`.
+
+        Either can carry `attachments`: a PDF or a photo of a plan the person already has,
+        which the provider's model reads itself. What this instance accepts is in
+        `GET /api/coach/status` (`attachments`, null when the provider cannot read files).
+        The files are checked before the daily cap is touched, held in memory for the one
+        job, and never stored.
       requestBody:
         required: false
         content:
@@ -2520,12 +2526,23 @@ paths:
                   description: |
                     The language the app is showing, which the Coach writes in. Absent or not a
                     language tag, the profile's stored `lang` is used.
+                attachments:
+                  type: array
+                  maxItems: 5
+                  description: |
+                    Files for the Coach to read with this request, at most `attachments.maxCount`
+                    of them, each at most `attachments.maxBytes` and together at most
+                    `attachments.maxTotalBytes` (decoded). The declared type must match the file's
+                    first bytes.
+                  items: { $ref: '#/components/schemas/CoachAttachment' }
             example: { intake: { goal: muscle, experience: novice, daysPerWeek: 3, equipment: [dumbbell, barbell] } }
       responses:
         '202': { $ref: '#/components/responses/CoachJobQueued' }
+        '400': { $ref: '#/components/responses/CoachAttachmentRefused' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/CoachRefused' }
         '409': { $ref: '#/components/responses/CoachRefused' }
+        '413': { $ref: '#/components/responses/CoachAttachmentRefused' }
         '429': { $ref: '#/components/responses/CoachRefused' }
         '503': { $ref: '#/components/responses/CoachOff' }
 
@@ -2799,6 +2816,17 @@ paths:
                   minimum: 200
                   maximum: 4000
                   description: How long a chat message, refinement or review note can be. Clamped into the range; not a number keeps the current value.
+                attachments:
+                  type: object
+                  description: |
+                    Limits on files attached to a plan request. Each field is clamped: at most 5
+                    files, and no more than 3.5 MiB in all, which is what still fits the 5 MiB
+                    request body once base64 has added its third. A file is never allowed to be
+                    bigger than the whole request. Omitted fields keep their current value.
+                  properties:
+                    maxCount: { type: integer, minimum: 0, maximum: 5, description: 0 switches attachments off. Default 3. }
+                    maxBytes: { type: integer, minimum: 102400, maximum: 3670016, description: Per file. Default 3 MiB. }
+                    maxTotalBytes: { type: integer, minimum: 102400, maximum: 3670016, description: Per request. Default 3.5 MiB. }
             example: { enabled: true, provider: compatible, model: qwen3.8-27b, caps: { perProfileDaily: 10, instanceDaily: 0 } }
       responses:
         '200':
@@ -3034,6 +3062,26 @@ components:
               error: { type: string }
               code: { type: string, enum: [off, busy, cap, consent, shared, unprivileged] }
           example: { error: "the Coach is already thinking about your training", code: busy }
+    CoachAttachmentRefused:
+      description: |
+        An attachment was refused before the job was queued, so it cost no run. `code` is
+        `attachments` and `reason` says which check failed:
+
+        - `unsupported` (400): the provider cannot read files, or this job kind takes none.
+        - `malformed` (400): not a list of `{ name, mediaType, data }`, or `data` is not base64.
+        - `count` (400): more files than `attachments.maxCount`.
+        - `type` (400): a media type off the list, or bytes that are not what the type says.
+        - `size` (413): one file over `attachments.maxBytes`.
+        - `total` (413): all files together over `attachments.maxTotalBytes`.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+              code: { type: string, enum: [attachments] }
+              reason: { type: string, enum: [unsupported, malformed, count, type, size, total] }
+          example: { error: the Coach cannot take that attachment, code: attachments, reason: type }
     TooManyRequests:
       description: >-
         Paused by the sign-in throttle (see *Throttling* in the description). The request
@@ -3675,6 +3723,23 @@ components:
         used: { type: integer }
         limit: { type: integer, description: 0 means no per-profile cap. }
 
+    CoachAttachment:
+      type: object
+      required: [mediaType, data]
+      properties:
+        name: { type: string, maxLength: 120, description: 'A label for the model and the chat line, never a path. Path parts and control characters are dropped.' }
+        mediaType: { type: string, enum: [application/pdf, image/jpeg, image/png] }
+        data: { type: string, format: byte, description: 'The file, base64-encoded, without a `data:` prefix.' }
+
+    CoachAttachmentLimits:
+      type: object
+      properties:
+        types: { type: array, items: { type: string }, description: The media types the active provider reads. }
+        maxCount: { type: integer }
+        maxBytes: { type: integer, description: Per file, decoded. }
+        maxTotalBytes: { type: integer, description: Per request, decoded. }
+      example: { types: [application/pdf, image/jpeg, image/png], maxCount: 3, maxBytes: 3145728, maxTotalBytes: 3670016 }
+
     CoachStatus:
       type: object
       properties:
@@ -3700,6 +3765,14 @@ components:
           description: |
             The longest note or refinement this instance keeps, in characters. It rides on the
             poll so a chat that is already open follows an admin's change.
+        attachments:
+          oneOf:
+            - $ref: '#/components/schemas/CoachAttachmentLimits'
+            - type: 'null'
+          description: |
+            What a plan request may carry as attachments, or null when the configured provider
+            cannot read files (or the admin switched them off). Rides on the poll like
+            `maxMessageLen`, so switching provider takes the attach button away from an open chat.
         last:
           oneOf:
             - type: object
@@ -3864,6 +3937,14 @@ components:
             perProfileDaily: { type: integer }
             instanceDaily: { type: integer }
         maxMessageLen: { type: integer, description: 'How long a chat message, refinement or review note can be (200–4000, default 1000).' }
+        attachments:
+          type: object
+          description: The attachment limits in force, and whether the active provider can read files at all.
+          properties:
+            maxCount: { type: integer }
+            maxBytes: { type: integer }
+            maxTotalBytes: { type: integer }
+            supported: { type: boolean }
         community: { type: boolean }
         runtime:
           type: object

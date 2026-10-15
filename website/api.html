@@ -2136,6 +2136,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   </summary>
   <div class="ep-body">
 <p>Queues a <code>create</code> job. With <code>intake</code> it builds a plan from the answers given on the intake screen; with <code>refine</code> it reworks the proposal already waiting, in the words of the person reading it. The answer is 202 and a job id; the result arrives through <code>GET /api/coach/status</code>.</p>
+<p>Either can carry <code>attachments</code>: a PDF or a photo of a plan the person already has, which the provider's model reads itself. What this instance accepts is in <code>GET /api/coach/status</code> (<code>attachments</code>, null when the provider cannot read files). The files are checked before the daily cap is touched, held in memory for the one job, and never stored.</p>
     <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
 
 <p class="ep-h">Request body <span class="p-hint">(JSON)</span> <span class="p-hint">(optional)</span></p><div class="ptab">
@@ -2153,6 +2154,11 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="p-name">lang</span>
     <span class="p-type">string</span>
     <span class="p-desc">The language the app is showing, which the Coach writes in. Absent or not a language tag, the profile's stored <code>lang</code> is used.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments</span>
+    <span class="p-type"><a href="#schema-CoachAttachment">CoachAttachment</a>[]</span>
+    <span class="p-desc">Files for the Coach to read with this request, at most <code>attachments.maxCount</code> of them, each at most <code>attachments.maxBytes</code> and together at most <code>attachments.maxTotalBytes</code> (decoded). The declared type must match the file's first bytes.</span>
   </div>
 </div>
 <pre><code>{
@@ -2173,6 +2179,10 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="p-desc">Queued. The job runs in the background; its outcome arrives through <code>GET /api/coach/status</code>, which the client polls.<span class="r-sig">{ job: object }</span></span>
   </div>
   <div class="prow rrow">
+    <span class="r-code s4">400</span>
+    <span class="p-desc">An attachment was refused before the job was queued, so it cost no run. <code>code</code> is <code>attachments</code> and <code>reason</code> says which check failed: - <code>unsupported</code> (400): the provider cannot read files, or this job kind takes none. - <code>malformed</code> (400): not a list of <code>{ name, mediaType, data }</code>, or <code>data</code> is not base64. - <code>count</code> (400): more files than <code>attachments.maxCount</code>. - <code>type</code> (400): a media type off the list, or bytes that are not what the type says. - <code>size</code> (413): one file over <code>attachments.maxBytes</code>. - <code>total</code> (413): all files together over <code>attachments.maxTotalBytes</code>.<span class="r-sig"><code>{&quot;error&quot;:&quot;the Coach cannot take that attachment&quot;}</code></span></span>
+  </div>
+  <div class="prow rrow">
     <span class="r-code s4">401</span>
     <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
   </div>
@@ -2183,6 +2193,10 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   <div class="prow rrow">
     <span class="r-code s4">409</span>
     <span class="p-desc">The Coach will not take this job, and says which reason in <code>code</code>: - <code>busy</code> (409): a job for this profile is already running. - <code>shared</code> (409): instance mode, and the credential belongs to another profile. - <code>cap</code> (429): this profile's or the instance's daily limit is spent. - <code>consent</code> (403): no consent recorded for this profile. - <code>unprivileged</code> (503): the privilege drop cannot be performed, so no job runs. The message is the one to show; the raw provider detail never reaches the user.<span class="r-sig"><code>{&quot;error&quot;:&quot;the Coach is already thinking about your training&quot;}</code></span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">413</span>
+    <span class="p-desc">An attachment was refused before the job was queued, so it cost no run. <code>code</code> is <code>attachments</code> and <code>reason</code> says which check failed: - <code>unsupported</code> (400): the provider cannot read files, or this job kind takes none. - <code>malformed</code> (400): not a list of <code>{ name, mediaType, data }</code>, or <code>data</code> is not base64. - <code>count</code> (400): more files than <code>attachments.maxCount</code>. - <code>type</code> (400): a media type off the list, or bytes that are not what the type says. - <code>size</code> (413): one file over <code>attachments.maxBytes</code>. - <code>total</code> (413): all files together over <code>attachments.maxTotalBytes</code>.<span class="r-sig"><code>{&quot;error&quot;:&quot;the Coach cannot take that attachment&quot;}</code></span></span>
   </div>
   <div class="prow rrow">
     <span class="r-code s4">429</span>
@@ -2962,6 +2976,26 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="p-name">maxMessageLen</span>
     <span class="p-type">integer <span class="p-hint">(200&ndash;4000)</span></span>
     <span class="p-desc">How long a chat message, refinement or review note can be. Clamped into the range; not a number keeps the current value.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments</span>
+    <span class="p-type">object</span>
+    <span class="p-desc">Limits on files attached to a plan request. Each field is clamped: at most 5 files, and no more than 3.5 MiB in all, which is what still fits the 5 MiB request body once base64 has added its third. A file is never allowed to be bigger than the whole request. Omitted fields keep their current value.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.maxCount</span>
+    <span class="p-type">integer <span class="p-hint">(0&ndash;5)</span></span>
+    <span class="p-desc">0 switches attachments off. Default 3.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.maxBytes</span>
+    <span class="p-type">integer <span class="p-hint">(102400&ndash;3670016)</span></span>
+    <span class="p-desc">Per file. Default 3 MiB.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.maxTotalBytes</span>
+    <span class="p-type">integer <span class="p-hint">(102400&ndash;3670016)</span></span>
+    <span class="p-desc">Per request. Default 3.5 MiB.</span>
   </div>
 </div>
 <pre><code>{
@@ -4496,6 +4530,67 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   </div>
 </details>
 
+<details class="ep sch" id="schema-CoachAttachment">
+  <summary>
+    <span class="sch-name"><code>CoachAttachment</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum"></span>
+  </summary>
+  <div class="ep-body">
+
+<div class="ptab">
+  <div class="prow">
+    <span class="p-name">name</span>
+    <span class="p-type">string <span class="p-hint">(&le; 120 chars)</span></span>
+    <span class="p-desc">A label for the model and the chat line, never a path. Path parts and control characters are dropped.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">mediaType<em class="p-req" title="required">required</em></span>
+    <span class="p-type">&quot;application/pdf&quot; | &quot;image/jpeg&quot; | &quot;image/png&quot;</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">data<em class="p-req" title="required">required</em></span>
+    <span class="p-type">string <span class="p-hint">(byte)</span></span>
+    <span class="p-desc">The file, base64-encoded, without a <code>data:</code> prefix.</span>
+  </div>
+</div>
+  </div>
+</details>
+
+<details class="ep sch" id="schema-CoachAttachmentLimits">
+  <summary>
+    <span class="sch-name"><code>CoachAttachmentLimits</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum"></span>
+  </summary>
+  <div class="ep-body">
+
+<div class="ptab">
+  <div class="prow">
+    <span class="p-name">types</span>
+    <span class="p-type">string[]</span>
+    <span class="p-desc">The media types the active provider reads.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">maxCount</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">maxBytes</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc">Per file</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">maxTotalBytes</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc">Per request</span>
+  </div>
+</div>
+  </div>
+</details>
+
 <details class="ep sch" id="schema-CoachStatus">
   <summary>
     <span class="sch-name"><code>CoachStatus</code></span>
@@ -4524,6 +4619,11 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="p-name">maxMessageLen</span>
     <span class="p-type">integer <span class="p-hint">(200&ndash;4000)</span></span>
     <span class="p-desc">The longest note or refinement this instance keeps, in characters. It rides on the poll so a chat that is already open follows an admin's change.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments</span>
+    <span class="p-type"><a href="#schema-CoachAttachmentLimits">CoachAttachmentLimits</a> | null</span>
+    <span class="p-desc">What a plan request may carry as attachments, or null when the configured provider cannot read files (or the admin switched them off). Rides on the poll like <code>maxMessageLen</code>, so switching provider takes the attach button away from an open chat.</span>
   </div>
   <div class="prow">
     <span class="p-name">last</span>
@@ -4971,6 +5071,31 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="p-name">maxMessageLen</span>
     <span class="p-type">integer</span>
     <span class="p-desc">How long a chat message, refinement or review note can be (200–4000, default 1000).</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments</span>
+    <span class="p-type">object</span>
+    <span class="p-desc">The attachment limits in force, and whether the active provider can read files at all.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.maxCount</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.maxBytes</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.maxTotalBytes</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.supported</span>
+    <span class="p-type">boolean</span>
+    <span class="p-desc"></span>
   </div>
   <div class="prow">
     <span class="p-name">community</span>

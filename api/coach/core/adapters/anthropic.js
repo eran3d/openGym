@@ -8,6 +8,7 @@ export const anthropicSpec = {
   id: 'anthropic',
   path: () => '/v1/messages',
   modelsPath: '/v1/models',
+  attachmentTypes: ['application/pdf', 'image/jpeg', 'image/png'],
   headers: key => ({
     'x-api-key': key,
     'anthropic-version': ANTHROPIC_VERSION,
@@ -17,13 +18,13 @@ export const anthropicSpec = {
   }),
   // The rules block is marked cacheable: identical for every job of a task, so subsequent
   // jobs read it from Anthropic's prompt cache at a tenth of the input price.
-  body: ({ model, prompt, system, maxTokens }) => ({
+  body: ({ model, prompt, system, maxTokens, attachments }) => ({
     model,
     max_tokens: maxTokens,
     system: system
       ? [{ type: 'text', text: SYSTEM_PROMPT + '\n\n' + system, cache_control: { type: 'ephemeral' } }]
       : SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: prompt }]
+    messages: [{ role: 'user', content: attachments && attachments.length ? [...anthropicParts(attachments), { type: 'text', text: prompt }] : prompt }]
   }),
   errorMessage: data => data && data.error && data.error.message,
   readText: data => {
@@ -33,5 +34,16 @@ export const anthropicSpec = {
   },
   readModels: data => (data.data || []).map(m => m.id)
 };
+
+/** Attachments as Messages API content blocks: a PDF is a `document`, an image an `image`.
+ *  Shared with the Agent SDK adapter, whose user message carries the same blocks. Files go
+ *  before the text, which is the order Anthropic recommends for documents. */
+export function anthropicParts(attachments) {
+  return (attachments || []).map(a => ({
+    type: a.mediaType === 'application/pdf' ? 'document' : 'image',
+    source: { type: 'base64', media_type: a.mediaType, data: a.data },
+    ...(a.mediaType === 'application/pdf' && a.name ? { title: a.name } : {})
+  }));
+}
 
 export default httpAdapter(anthropicSpec);

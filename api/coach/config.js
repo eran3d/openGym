@@ -28,6 +28,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { HTTP_PROVIDERS, baseUrlFor } from './core/providers.js';
 import { MAX_OUTPUT_TOKENS } from './core/adapters/http.js';
+import { ATTACHMENT_DEFAULTS } from './attachments.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const FILE = path.join(DATA, 'coach.json');
@@ -98,6 +99,9 @@ const DEFAULTS = {
   // ~12k of the 16k thinking). The admin route clamps a write to [floor, ceiling]; the adapter's
   // own MAX_OUTPUT_TOKENS is the fallback for callers that configure nothing (the phone, warmup).
   maxOutputTokens: MAX_OUTPUT_TOKENS,
+  // Files a person may attach to a plan request (a PDF or a photo of a plan). Clamped on read by
+  // attachments.limitsOf(), which is the only reader; maxCount 0 switches attachments off.
+  attachments: { ...ATTACHMENT_DEFAULTS },
   log: []
 };
 export const MAX_MESSAGE_LEN_FLOOR = 200;
@@ -145,7 +149,11 @@ export function load() {
   if (cache) return cache;
   let stored = {};
   try { stored = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { /* absent = feature off */ }
-  cache = { ...DEFAULTS, ...stored, caps: { ...DEFAULTS.caps, ...(stored.caps || {}) } };
+  cache = {
+    ...DEFAULTS, ...stored,
+    caps: { ...DEFAULTS.caps, ...(stored.caps || {}) },
+    attachments: { ...DEFAULTS.attachments, ...(isPlainObj(stored.attachments) ? stored.attachments : {}) }
+  };
 
   // Until v1.2.11 this file held ONE credential, ONE model and ONE binding — for whichever
   // provider was selected at the time. Lift each onto that provider. One-way on purpose: a

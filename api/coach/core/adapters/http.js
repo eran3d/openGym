@@ -113,6 +113,9 @@ export function httpAdapter(spec) {
     // The two facts the server's job runner branches on. Stated, not inferred from absence.
     spawns: false,
     needsRuntime: false,
+    // The media types this provider reads as message parts, or null. Read by the server's
+    // attachment check and status poll; the spec decides how the parts are shaped.
+    attachmentTypes: Array.isArray(spec.attachmentTypes) ? spec.attachmentTypes : null,
 
     baseUrl: cfg => baseUrlFor(id, cfg),
 
@@ -158,6 +161,12 @@ export function httpAdapter(spec) {
      */
     async invoke(opts = {}) {
       const { cfg, prompt, system, schema, env, model, timeoutMs = DEFAULT_TIMEOUT_MS, maxTokens = MAX_OUTPUT_TOKENS, fetch: fetchImpl = globalThis.fetch, signal } = opts;
+      const attachments = Array.isArray(opts.attachments) ? opts.attachments : [];
+      // The server refuses these at enqueue; this is the adapter's own word on it, so a caller
+      // that skipped the check gets a failure rather than a request with the files left out.
+      if (attachments.some(a => !adapter.attachmentTypes || !adapter.attachmentTypes.includes(a.mediaType))) {
+        return { code: 1, text: '', stderr: `${id} cannot read this kind of attachment` };
+      }
       const base = adapter.baseUrl(cfg);
       if (!base) return { code: -1, text: '', stderr: `no endpoint configured for ${id}`, spawnError: true };
       const key = keyOf(env);
@@ -165,7 +174,7 @@ export function httpAdapter(spec) {
       const chosen = model || meta.defaultModel;
       if (!chosen) return { code: 1, text: '', stderr: `no model chosen for ${id} (pick one from the list the endpoint serves)` };
 
-      let body = spec.body({ model: chosen, prompt, system: system || null, schema: schema || null, maxTokens });
+      let body = spec.body({ model: chosen, prompt, system: system || null, schema: schema || null, maxTokens, attachments });
       let retriedWithoutJsonMode = false;
       let transientRetries = 0;
       for (;;) {

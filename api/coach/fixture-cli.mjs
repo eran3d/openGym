@@ -11,6 +11,9 @@
  * echoes real ids back out of it, and never tries to be a coach. Tests assert on structure.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 const MODE = process.env.FIXTURE_MODE || '';
 
 const read = () => new Promise(resolve => {
@@ -49,6 +52,21 @@ function payload() {
 const P = payload();
 const kind = P.task || (/change-set/i.test(prompt) ? 'review' : 'create');
 
+// Files attached to a plan request arrive in ./attachments (the adapter writes them there, in
+// the payload's order). Echoing name, type and size back proves the bytes reached the provider,
+// not just the payload's description of them.
+const attached = (() => {
+  const list = Array.isArray(P.attachments) ? P.attachments : [];
+  if (!list.length) return '';
+  let files = [];
+  try { files = fs.readdirSync('attachments').sort((a, b) => parseInt(a) - parseInt(b)); } catch { /* none written */ }
+  return ' Attachments read: ' + list.map((a, i) => {
+    let size = 'missing';
+    try { size = fs.statSync(path.join('attachments', files[i])).size + ' bytes'; } catch { /* missing */ }
+    return `${a.name} (${a.mediaType}, ${size})`;
+  }).join('; ') + '.';
+})();
+
 // Well-formed JSON naming an exercise nobody has. This is the failure validate.js exists for,
 // and it is not the same as garbage: every check upstream of the validator is happy with it.
 // The fixture keeps saying it on the repair round too, because the interesting assertion is
@@ -76,7 +94,7 @@ if (kind === 'create') {
     coach_contract: 1,
     opengym_plan: 1,
     name: 'Coach plan',
-    summary: 'A three-day full-body plan built around the equipment you listed.',
+    summary: 'A three-day full-body plan built around the equipment you listed.' + attached,
     // Echoes whether the previous bundle actually arrived, so a test can tell a refine that
     // carried its predecessor from one that silently sent `previous: null`.
     basedOn: P.refine?.previous

@@ -8,11 +8,13 @@ export const geminiSpec = {
   path: model => `/v1beta/models/${encodeURIComponent(model)}:generateContent`,
   modelsPath: '/v1beta/models?pageSize=200',
   headers: key => ({ 'x-goog-api-key': key }),
+  attachmentTypes: ['application/pdf', 'image/jpeg', 'image/png'],
   // No responseSchema on purpose: Gemini's OpenAPI subset rejects the type unions our schemas
   // use for before/after, and json mime plus the validator already holds the line.
-  body: ({ prompt, system, maxTokens }) => ({
+  body: ({ prompt, system, maxTokens, attachments }) => ({
     systemInstruction: { parts: [{ text: system ? SYSTEM_PROMPT + '\n\n' + system : SYSTEM_PROMPT }] },
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    // Files as inline parts, ahead of the text.
+    contents: [{ role: 'user', parts: [...(attachments || []).map(a => ({ inlineData: { mimeType: a.mediaType, data: a.data } })), { text: prompt }] }],
     generationConfig: { responseMimeType: 'application/json', maxOutputTokens: maxTokens }
   }),
   errorMessage: data => data && data.error && data.error.message,
