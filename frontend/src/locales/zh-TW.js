@@ -2252,4 +2252,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': '根據這個檔案產生的計畫會取代正在等你的建議。這些建議不會被套用。',
   'That PDF has more pages than the Coach reads.': '這份 PDF 的頁數超過 AI 教練能讀取的範圍。',
   'Up to {0} pages.': '最多 {0} 頁。',
+  'Images up to {0} MB.': '圖片最多 {0} MB。',
 }

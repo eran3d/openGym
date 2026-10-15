@@ -116,6 +116,7 @@ export function httpAdapter(spec) {
     // The media types this provider reads as message parts, or null. Read by the server's
     // attachment check and status poll; the spec decides how the parts are shaped.
     attachmentTypes: Array.isArray(spec.attachmentTypes) ? spec.attachmentTypes : null,
+    attachmentLimits: spec.attachmentLimits || null,
 
     baseUrl: cfg => baseUrlFor(id, cfg),
 

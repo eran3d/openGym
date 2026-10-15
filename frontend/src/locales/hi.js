@@ -2259,4 +2259,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'इस फ़ाइल से बना प्लान आपके इंतज़ार में रखे सुझावों की जगह ले लेगा। वे लागू नहीं होंगे।',
   'That PDF has more pages than the Coach reads.': 'इस PDF में कोच जितने पेज पढ़ता है उससे ज़्यादा पेज हैं।',
   'Up to {0} pages.': 'अधिकतम {0} पेज।',
+  'Images up to {0} MB.': 'इमेज अधिकतम {0} MB।',
 }

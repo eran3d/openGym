@@ -2259,4 +2259,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'Bu dosyadan oluşturulan plan, seni bekleyen önerilerin yerini alır. Öneriler uygulanmaz.',
   'That PDF has more pages than the Coach reads.': 'Bu PDF, Koç’un okuduğundan fazla sayfa içeriyor.',
   'Up to {0} pages.': 'En fazla {0} sayfa.',
+  'Images up to {0} MB.': 'Görseller en fazla {0} MB.',
 }

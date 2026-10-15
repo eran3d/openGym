@@ -203,12 +203,14 @@ still in charge. Codex and an OpenAI-compatible endpoint get no paperclip; the s
 files for them as well.
 
 The admin sets the limits on the AI Coach card (**Advanced**): files per message (default 3,
-0 switches attachments off), size per file (default 3 MB) and per request (default and maximum
-3.5 MB, which is what still fits the 5 MB request body once base64 has added its third), and
+0 switches attachments off), size per file (default 10 MB) and per request (default and maximum
+15 MB, which is what the plan route's 21 MB request body carries once base64 has added its
+third; Anthropic takes at most 7.5 MB per image, and the app holds images to that there), and
 pages per PDF (default 30, at most 100). The page limit is the one that bounds the cost: a
 provider reads every page as text and as an image, so a small scan of many pages costs more than
 a large photo. A file must be what its type says: a PDF has to start like one, and one whose
-pages cannot be counted is refused. A message with files is one run against
+pages cannot be counted is refused. A reverse proxy in front of openGym needs room for that body on
+`/api/coach/plan` (see [Self-hosting](SELF_HOSTING.md#option-c--traefik--nginx--nginx-proxy-manager)). A message with files is one run against
 the daily caps like any other. The file is sent to the provider with that one job and the repair
 round, held in memory only, and never stored: not in your synced state, not in the Coach's
 records, not in the job log. The chat keeps the file's name.

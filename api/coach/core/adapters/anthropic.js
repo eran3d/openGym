@@ -3,12 +3,15 @@ import { httpAdapter } from './http.js';
 import { SYSTEM_PROMPT } from '../system-prompt.js';
 
 export const ANTHROPIC_VERSION = '2023-06-01';
+export const ANTHROPIC_ATTACHMENT_LIMITS = Object.freeze({ maxImageBytes: 7500000 });
 
 export const anthropicSpec = {
   id: 'anthropic',
   path: () => '/v1/messages',
   modelsPath: '/v1/models',
   attachmentTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+  // 10 MB of base64 per image on the API itself (5 MB on Bedrock and Vertex), so 7.5 MB of image.
+  attachmentLimits: ANTHROPIC_ATTACHMENT_LIMITS,
   headers: key => ({
     'x-api-key': key,
     'anthropic-version': ANTHROPIC_VERSION,

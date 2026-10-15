@@ -2338,4 +2338,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'এই ফাইল থেকে তৈরি প্ল্যান আপনার জন্য অপেক্ষমাণ পরামর্শগুলোর জায়গা নেবে। সেগুলো প্রয়োগ হবে না।',
   'That PDF has more pages than the Coach reads.': 'এই PDF-এ কোচ যত পৃষ্ঠা পড়ে তার চেয়ে বেশি পৃষ্ঠা আছে।',
   'Up to {0} pages.': 'সর্বোচ্চ {0} পৃষ্ঠা।',
+  'Images up to {0} MB.': 'ছবি সর্বোচ্চ {0} MB।',
 }

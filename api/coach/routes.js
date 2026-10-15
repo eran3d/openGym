@@ -11,7 +11,7 @@ import { adapterFor } from './adapters/index.js';
 import { canDropPrivileges } from './adapters/spawn.js';
 import { DATA_CATEGORIES } from './core/payload.js';
 import { validateBaseUrl, validateHeaders, baseUrlFor } from './core/providers.js';
-import { limitsOf as attachmentLimits, MAX_BYTES_FLOOR, MAX_TOTAL_BYTES_CEILING, MAX_COUNT_CEILING, MAX_PAGES_CEILING } from './attachments.js';
+import { limitsOf as attachmentLimits, MAX_BYTES_FLOOR, MAX_TOTAL_BYTES_CEILING, MAX_COUNT_CEILING, MAX_PAGES_CEILING, PLAN_BODY_LIMIT } from './attachments.js';
 
 // Job failures the user sees, in the app's own voice. The raw provider detail never reaches
 // them — it goes to the admin card, which is where someone can act on it (FR-47).
@@ -76,7 +76,8 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
 
     'POST /api/coach/plan': async (req, res) => {
       const user = guard(req, res); if (!user) return;
-      const body = await readBody(req);
+      // The one route with a larger body: it may carry files (attachments.js PLAN_BODY_LIMIT).
+      const body = await readBody(req, { limit: PLAN_BODY_LIMIT });
       try {
         // The admin's configured length is the real limit; jobs.enqueue is where it is actually
         // enforced (it is the one place that already loads config for every job). This slice is

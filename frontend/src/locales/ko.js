@@ -2259,4 +2259,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': '이 파일로 만든 플랜이 기다리고 있던 제안을 대신합니다. 제안은 적용되지 않습니다.',
   'That PDF has more pages than the Coach reads.': '이 PDF는 코치가 읽는 쪽수보다 깁니다.',
   'Up to {0} pages.': '최대 {0}쪽.',
+  'Images up to {0} MB.': '이미지는 최대 {0}MB.',
 }

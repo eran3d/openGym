@@ -29,7 +29,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { unprivilegedIds } from './spawn.js';
 import { SYSTEM_PROMPT } from '../core/system-prompt.js';
-import { anthropicParts } from '../core/adapters/anthropic.js';
+import { anthropicParts, ANTHROPIC_ATTACHMENT_LIMITS } from '../core/adapters/anthropic.js';
 
 const PKG = '@anthropic-ai/claude-agent-sdk';
 const require_ = createRequire(import.meta.url);
@@ -96,6 +96,8 @@ export default {
   spawns: true,
   runtime: 'Claude Agent SDK',
   attachmentTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+  // The same Messages API behind it, with the same per-image ceiling.
+  attachmentLimits: ANTHROPIC_ATTACHMENT_LIMITS,
 
   /* Importing the package is the check: it is exactly what a job will do, and it is the one
      difference between the two build targets. The credential is deliberately not probed here —

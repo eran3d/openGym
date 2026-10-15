@@ -105,7 +105,9 @@ gym.example.com {
 Route `gym.example.com` (HTTPS) → `web:80` (or `<docker-host>:8080`). Any reverse proxy works —
 openGym only needs the browser to reach it over `https://gym.example.com`. If that proxy caps
 request bodies (nginx does, at 1 MiB by default), allow at least 5 MiB on `/api/` — the app syncs
-its whole history in one PUT; the bundled web image already allows 5 MiB, matching the API. The
+its whole history in one PUT; the bundled web image already allows 5 MiB, matching the API. One
+path needs more: `/api/coach/plan` reads up to 21 MiB, because a Coach plan request can carry a PDF
+or photos (the bundled web image allows that on this path alone). The
 photos and videos people attach to their own exercises need more room and more time on
 `/api/media/` — see [Photos and videos of custom exercises](#photos-and-videos-of-custom-exercises).
 

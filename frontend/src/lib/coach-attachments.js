@@ -19,6 +19,8 @@ export function checkPicked(current, picked, cap) {
     if (!cap.types.includes(type)) return { ok: false, reason: 'type' }
     if (!(f.size > 0)) return { ok: false, reason: 'malformed' }
     if (f.size > cap.maxBytes) return { ok: false, reason: 'size' }
+    // A provider may take less per image than per file (Anthropic: 10 MB of base64 per image).
+    if (type !== 'application/pdf' && cap.maxImageBytes && f.size > cap.maxImageBytes) return { ok: false, reason: 'size' }
   }
   for (const f of all) total += f.size || 0
   if (total > cap.maxTotalBytes) return { ok: false, reason: 'total' }
@@ -58,7 +60,10 @@ export const ATTACHMENT_ERRORS = {
 export function attachmentErrorText(reason, cap) {
   const base = ATTACHMENT_ERRORS[reason] || ATTACHMENT_ERRORS.malformed
   if (!cap) return base
-  if (reason === 'size') return base + ' ' + t('Up to {0} MB per file.', fmtMB(cap.maxBytes / 1048576))
+  if (reason === 'size') {
+    const line = base + ' ' + t('Up to {0} MB per file.', fmtMB(cap.maxBytes / 1048576))
+    return cap.maxImageBytes && cap.maxImageBytes < cap.maxBytes ? line + ' ' + t('Images up to {0} MB.', fmtMB(cap.maxImageBytes / 1048576)) : line
+  }
   if (reason === 'total') return base + ' ' + t('Up to {0} MB in all.', fmtMB(cap.maxTotalBytes / 1048576))
   if (reason === 'count') return base + ' ' + t('Up to {0} at a time.', cap.maxCount)
   if (reason === 'pages' && cap.maxPages) return base + ' ' + t('Up to {0} pages.', cap.maxPages)

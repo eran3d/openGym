@@ -1420,6 +1420,7 @@ export const PT_BR_OVERRIDES = {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'Um plano feito a partir deste arquivo fica no lugar das sugestões que esperam por você. Elas não são aplicadas.',
   'That PDF has more pages than the Coach reads.': 'Esse PDF tem mais páginas do que o Treinador lê.',
   'Up to {0} pages.': 'Até {0} páginas.',
+  'Images up to {0} MB.': 'Imagens de até {0} MB.',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

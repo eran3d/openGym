@@ -16,6 +16,13 @@ describe('checkPicked', () => {
     expect(checkPicked([f('a.pdf', 'application/pdf', 900)], [f('b.pdf', 'application/pdf', 900)], CAP).reason).toBe('total')
     expect(checkPicked([f('a.pdf', 'application/pdf', 1), f('b.pdf', 'application/pdf', 1)], [f('c.pdf', 'application/pdf', 1)], CAP).reason).toBe('count')
   })
+  it('holds an image to the provider’s per-image limit, and a PDF only to the file limit', () => {
+    const cap = { ...CAP, maxImageBytes: 600 }
+    expect(checkPicked([], [f('a.png', 'image/png', 700)], cap).reason).toBe('size')
+    expect(checkPicked([], [f('a.pdf', 'application/pdf', 700)], cap)).toEqual({ ok: true })
+    expect(attachmentErrorText('size', cap)).toMatch(/Images up to/)
+    expect(attachmentErrorText('size', CAP)).not.toMatch(/Images up to/)
+  })
   it('counts files already picked, which carry mediaType rather than type', () => {
     expect(checkPicked([{ name: 'a.pdf', mediaType: 'application/pdf', size: 1400 }], [f('b.png', 'image/png', 200)], CAP).reason).toBe('total')
   })

@@ -116,9 +116,26 @@ test('limits are clamped to what one request body can carry, and 0 files switche
   assert.equal(l.maxCount, att.MAX_COUNT_CEILING);
   assert.equal(l.maxTotalBytes, att.MAX_TOTAL_BYTES_CEILING);
   assert.ok(l.maxBytes <= l.maxTotalBytes);
-  // base64 of the ceiling, plus room for the rest of the request, fits the 5 MiB body limit.
-  assert.ok(Math.ceil(att.MAX_TOTAL_BYTES_CEILING / 3) * 4 < 5 * 1024 * 1024 - 64 * 1024);
+  // base64 of the ceiling, plus room for the rest of the request, fits the plan route's body
+  // limit, and that limit is the nginx one (see the template test below).
+  assert.equal(att.MAX_TOTAL_BYTES_CEILING, 15 * 1024 * 1024);
+  assert.ok(Math.ceil(att.MAX_TOTAL_BYTES_CEILING / 3) * 4 + 512 * 1024 < att.PLAN_BODY_LIMIT);
+  assert.equal(att.ATTACHMENT_DEFAULTS.maxBytes, 10 * 1024 * 1024);
+  assert.equal(att.ATTACHMENT_DEFAULTS.maxTotalBytes, 15 * 1024 * 1024);
   assert.equal(att.capability({ attachments: { maxCount: 0 } }, adapterFor('fixture')), null);
+});
+
+test('an image is held to what the provider takes per image, a PDF to the file limit', () => {
+  const cap = att.capability({}, adapterFor('anthropic'));
+  assert.equal(cap.maxImageBytes, 7500000, 'Anthropic: 10 MB of base64 per image');
+  assert.equal(att.capability({}, adapterFor('claude')).maxImageBytes, 7500000);
+  assert.equal(att.capability({}, adapterFor('openai')).maxImageBytes, cap.maxBytes);
+  const bigPng = Buffer.concat([PNG, Buffer.alloc(8 * 1024 * 1024)]);
+  const r = att.checkAttachments([file('big.png', 'image/png', bigPng)], cap);
+  assert.equal(r.reason, 'size'); assert.equal(r.status, 413);
+  assert.equal(att.checkAttachments([file('big.png', 'image/png', bigPng)], att.capability({}, adapterFor('openai'))).ok, true);
+  const bigPdf = Buffer.concat([pdfWith(3), Buffer.alloc(8 * 1024 * 1024)]);
+  assert.equal(att.checkAttachments([file('big.pdf', 'application/pdf', bigPdf)], cap).ok, true, 'a PDF is not an image');
 });
 
 test('which providers read files is stated by each adapter, and nothing else decides it', () => {
@@ -275,7 +292,7 @@ test('status tells the client what it may attach; the plan route refuses with a 
   writeState(DIR, uid, sampleState());
   const call = harness(uid);
   const st = await call('GET /api/coach/status');
-  assert.deepEqual(st.body.attachments, { types: ['application/pdf', 'image/jpeg', 'image/png'], ...att.ATTACHMENT_DEFAULTS });
+  assert.deepEqual(st.body.attachments, { types: ['application/pdf', 'image/jpeg', 'image/png'], ...att.ATTACHMENT_DEFAULTS, maxImageBytes: att.ATTACHMENT_DEFAULTS.maxBytes });
   assert.equal(st.body.attachments.maxPages, 30);
 
   const bad = await call('POST /api/coach/plan', { refine: 'x', attachments: [file('x.png', 'image/png', PDF)] });
@@ -304,4 +321,19 @@ test('the admin sets the limits within the ceilings, and the card says whether t
   await call('POST /api/admin/coach/config', { provider: 'codex' });
   assert.equal((await call('GET /api/admin/coach')).body.attachments.supported, false);
   fresh();
+});
+
+/* ------------------------------ the transport ------------------------------ */
+
+test('nginx gives the plan route, and only that route, the body the API accepts there', () => {
+  const tpl = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', 'web', 'nginx.conf.template'), 'utf8');
+  const block = tpl.match(/location = \$\{BASE_PATH\}\/api\/coach\/plan \{([\s\S]*?)\n {4}\}/);
+  assert.ok(block, 'an exact-match location for /api/coach/plan');
+  const m = block[1].match(/client_max_body_size (\d+)m;/);
+  assert.ok(m);
+  assert.equal(+m[1] * 1024 * 1024, att.PLAN_BODY_LIMIT, 'nginx and the API agree on the plan route');
+  assert.match(block[1], /proxy_pass \$api_upstream\$api_request_uri;/);
+  const api = tpl.match(/location \^~ \$\{BASE_PATH\}\/api\/ \{([\s\S]*?)\n {4}\}/);
+  assert.match(api[1], /client_max_body_size 5m;/, 'every other API route keeps 5 MiB');
+  assert.equal((tpl.match(/client_max_body_size/g) || []).length, 3, 'api, plan, media: nothing else');
 });

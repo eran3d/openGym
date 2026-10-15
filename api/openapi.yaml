@@ -106,7 +106,8 @@ info:
     - Request bodies are parsed as JSON regardless of Content-Type. A body that does
       not parse, or parses to anything but an object (`null`, a string, an array), is
       `400 {"error":"invalid json"}` on every route that reads one; an empty body counts
-      as `{}`. A body over 5 MiB is `413 {"error":"body too large"}`; the rest of the
+      as `{}`. A body over 5 MiB is `413 {"error":"body too large"}` (the one exception is
+      `POST /api/coach/plan`, which may carry files and reads up to 21 MiB); the rest of the
       upload is discarded so the answer reaches the client.
     - CORS: the request's `Origin` is reflected in `Access-Control-Allow-Origin`
       **without** `Allow-Credentials`, so cross-origin callers can only ever
@@ -2820,13 +2821,13 @@ paths:
                   type: object
                   description: |
                     Limits on files attached to a plan request. Each field is clamped: at most 5
-                    files, and no more than 3.5 MiB in all, which is what still fits the 5 MiB
-                    request body once base64 has added its third. A file is never allowed to be
+                    files, and no more than 15 MiB in all, which is what still fits the plan
+                    route's 21 MiB request body once base64 has added its third. A file is never allowed to be
                     bigger than the whole request. Omitted fields keep their current value.
                   properties:
                     maxCount: { type: integer, minimum: 0, maximum: 5, description: 0 switches attachments off. Default 3. }
-                    maxBytes: { type: integer, minimum: 102400, maximum: 3670016, description: Per file. Default 3 MiB. }
-                    maxTotalBytes: { type: integer, minimum: 102400, maximum: 3670016, description: Per request. Default 3.5 MiB. }
+                    maxBytes: { type: integer, minimum: 102400, maximum: 15728640, description: Per file. Default 10 MiB. }
+                    maxTotalBytes: { type: integer, minimum: 102400, maximum: 15728640, description: Per request. Default 15 MiB. }
                     maxPages: { type: integer, minimum: 1, maximum: 100, description: 'Per PDF. Default 30. Pages, not bytes, are what a PDF costs: a provider reads each one as text and as an image.' }
             example: { enabled: true, provider: compatible, model: qwen3.8-27b, caps: { perProfileDaily: 10, instanceDaily: 0 } }
       responses:
@@ -3066,7 +3067,7 @@ components:
     CoachAttachmentRefused:
       description: |
         Either the body itself was refused, as on every route (`400 {"error":"invalid json"}`,
-        `413 {"error":"body too large"}` over 5 MiB), or an attachment was refused before the
+        `413 {"error":"body too large"}` over 21 MiB on this route), or an attachment was refused before the
         job was queued, so it cost no run. Then `code` is `attachments` and `reason` says
         which check failed:
 
@@ -3747,7 +3748,8 @@ components:
         maxBytes: { type: integer, description: Per file, decoded. }
         maxTotalBytes: { type: integer, description: Per request, decoded. }
         maxPages: { type: integer, description: Per PDF. }
-      example: { types: [application/pdf, image/jpeg, image/png], maxCount: 3, maxBytes: 3145728, maxTotalBytes: 3670016, maxPages: 30 }
+        maxImageBytes: { type: integer, description: 'Per image, decoded: maxBytes, or less where the provider takes less per image (Anthropic: 10 MB of base64, so 7.5 MB).' }
+      example: { types: [application/pdf, image/jpeg, image/png], maxCount: 3, maxBytes: 10485760, maxTotalBytes: 15728640, maxPages: 30, maxImageBytes: 7500000 }
 
     CoachStatus:
       type: object

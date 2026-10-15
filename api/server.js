@@ -731,7 +731,9 @@ function json(res, code, obj, extraHeaders) {
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
-function readBody(req) {
+// `limit` is for the one route that carries files in its body (POST /api/coach/plan, see
+// coach/attachments.js PLAN_BODY_LIMIT); every other route keeps MAX_BODY.
+function readBody(req, { limit = MAX_BODY } = {}) {
   return new Promise((resolve, reject) => {
     let size = 0, over = false; const chunks = [];
     req.on('data', d => {
@@ -743,10 +745,10 @@ function readBody(req) {
         // reset before it has parsed the answer reports a dropped connection instead of the
         // 413. A client that keeps streaming past twice the cap is not a mistaken one, and is
         // cut off.
-        if (size > 2 * MAX_BODY) req.destroy();
+        if (size > 2 * limit) req.destroy();
         return;
       }
-      if (size > MAX_BODY) {
+      if (size > limit) {
         over = true; chunks.length = 0;
         reject(new HttpError(413, 'body too large'));
         return;
@@ -757,7 +759,11 @@ function readBody(req) {
       if (over) return;
       if (!chunks.length) return resolve({});
       let body;
-      try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+      // One buffer, one string, then the chunks go: on the attachment route this is up to 20 MiB,
+      // and holding the chunk list and the joined copy past the parse would double that.
+      const text = (chunks.length === 1 ? chunks[0] : Buffer.concat(chunks)).toString('utf8');
+      chunks.length = 0;
+      try { body = JSON.parse(text); }
       catch { return reject(new HttpError(400, 'invalid json')); }
       // Every handler reads fields off the result, so a JSON `null`, string, number or array is
       // as much a client mistake as unparseable text — refused once here rather than dereferenced

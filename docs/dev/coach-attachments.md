@@ -36,15 +36,31 @@ Checked in `jobs.enqueue`, before the daily cap is bumped, so a refused file cos
 | Check | Default | Bound |
 | --- | --- | --- |
 | Media type | `application/pdf`, `image/jpeg`, `image/png` | whitelist, intersected with what the provider reads |
-| Bytes per file | 3 MiB | admin, 0.1 to 3.5 MiB |
-| Bytes per request | 3.5 MiB | admin, up to 3.5 MiB |
+| Bytes per file | 10 MiB | admin, 0.1 to 15 MiB |
+| Bytes per image | as per file | lower where the provider takes less (Anthropic: 7.5 MB) |
+| Bytes per request | 15 MiB | admin, up to 15 MiB |
 | Files per request | 3 | admin, 0 to 5 (0 switches the feature off) |
 | Pages per PDF | 30 | admin, 1 to 100 (Anthropic's own ceiling per request) |
 
-The 3.5 MiB ceiling is not taste: base64 adds a third, and `MAX_BODY` (and nginx's
-`client_max_body_size`) is 5 MiB for every API route. 3.5 MiB of file is 4.7 MiB on the wire,
-which leaves room for the rest of the request. Raising it means raising both of those, which is
-a separate decision.
+The 15 MiB ceiling is set by the transport. base64 adds a third, so 15 MiB of file is 20 MiB on
+the wire. Every API route reads at most 5 MiB (`MAX_BODY`, and nginx's `client_max_body_size`
+on `/api/`); `POST /api/coach/plan` alone reads up to 21 MiB (`PLAN_BODY_LIMIT`, passed to
+`readBody` by that route, and an exact-match `location` in `web/nginx.conf.template` with
+`client_max_body_size 21m`). The extra MiB is the rest of the request. A reverse proxy in front
+of the web container needs the same room on that one path.
+
+What the providers take, checked October 2026, so the ceiling stays inside all of them:
+
+| Provider | Request | Per file | PDF pages |
+| --- | --- | --- | --- |
+| Anthropic (API and Agent SDK) | 32 MB | 10 MB of base64 per image, so 7.5 MB of image (5 MB on Bedrock and Vertex) | 100 below a 1M-token context, 600 above |
+| OpenAI | 50 MB across all files | 50 MB | not stated |
+| Gemini | 100 MB of inline data (since January 2026; 20 MB before) | PDFs up to 50 MB | 1000 |
+
+So the per-image limit is the only one an adapter has to state (`attachmentLimits.maxImageBytes`
+on the Anthropic and Agent SDK adapters); status reports it as `maxImageBytes`. An instance
+behind an older Gemini endpoint that still caps inline data at 20 MB should set the request
+limit to 14 MiB.
 
 The declared `mediaType` must match the file's first bytes (`%PDF-`, the JPEG SOI marker, the
 PNG signature). A file that claims to be a PDF and is not is refused with the same class as a
@@ -69,7 +85,7 @@ translate: `unsupported`, `malformed`, `count`, `type`, `pages`, `size`, `total`
 `GET /api/coach/status` gains:
 
 ```json
-"attachments": { "types": ["application/pdf", "image/jpeg", "image/png"], "maxCount": 3, "maxBytes": 3145728, "maxTotalBytes": 3670016, "maxPages": 30 }
+"attachments": { "types": ["application/pdf", "image/jpeg", "image/png"], "maxCount": 3, "maxBytes": 10485760, "maxTotalBytes": 15728640, "maxPages": 30, "maxImageBytes": 7500000 }
 ```
 
 or `null` when the configured provider cannot read files, or the admin set the count to 0. The
@@ -113,7 +129,23 @@ plan was supposed to say. What that second read costs depends on the provider:
   per request, and explicit context caching is a separate API this adapter does not use.
 - **Claude Agent SDK** gets plain blocks. The SDK manages its own caching.
 
-## 5. Privacy
+## 5. Memory
+
+A 15 MiB request is 20 MiB of JSON, and the server is a small box. What it holds, at most:
+
+- While the body is read: the chunks, then one joined string; the chunk list is let go as soon
+  as the string exists. Then the parsed object, whose `data` strings are the only copy kept.
+- While the files are checked: one decoded `Buffer` per file, for the magic bytes and the page
+  count, which reads the `Buffer` directly rather than a string copy of it. It is dropped after
+  the check; whitespace is only stripped from `data` (a copy) when there is any.
+- On the job: the base64 strings, about 20 MiB for a full request, until the job ends.
+- Per provider call: the serialised request body (another ~20 MiB, built once per attempt; the
+  repair round builds it again after the first is gone).
+
+With two jobs running at once (`MAX_CONCURRENT`) that is in the order of 100 MiB at the peak, and
+nothing once the jobs are done.
+
+## 6. Privacy
 
 - Attachments live in the in-memory job object only. They are never written to `state-<uid>.json`,
   `coach/<uid>.json`, `coach.json` or the job log. The chat line in the synced state records the
@@ -128,14 +160,14 @@ plan was supposed to say. What that second read costs depends on the provider:
 - A restart loses a queued job's attachments, which is fine: the job is reported as interrupted,
   as it is today.
 
-## 6. Prompt
+## 7. Prompt
 
 The payload carries `attachments: [{ name, mediaType }]` so the model knows files came with the
 message, and `common.md` says what they are: the person's own material, read as data under rule
 3, like `userNote`. An attached plan is a starting point, not an instruction set: library ids,
 equipment and limitations still win.
 
-## 7. Web UI
+## 8. Web UI
 
 The Coach chat composer gets a paperclip button when status allows it. Picked files show as
 chips above the text field and can be removed. A message with attachments always goes out as a

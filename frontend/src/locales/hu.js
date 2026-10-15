@@ -2262,4 +2262,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'Az ebből a fájlból készült terv a rád váró javaslatok helyére kerül. Azok nem lesznek alkalmazva.',
   'That PDF has more pages than the Coach reads.': 'Ennek a PDF-nek több oldala van, mint amennyit az Edző elolvas.',
   'Up to {0} pages.': 'Legfeljebb {0} oldal.',
+  'Images up to {0} MB.': 'Képek legfeljebb {0} MB-ig.',
 }

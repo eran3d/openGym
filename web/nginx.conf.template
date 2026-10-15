@@ -77,6 +77,27 @@ server {
         proxy_send_timeout 300s;
     }
 
+    # The one API route whose body may carry files: a plan request with PDFs or photos attached
+    # (api/coach/attachments.js). Up to 15 MiB of files is 20 MiB of base64 plus the rest of the
+    # request, so this exact path gets 21m and nothing else does: an exact match wins over the
+    # prefix block above, and every other /api route keeps its 5m. The API applies the same
+    # limit (PLAN_BODY_LIMIT) to this route alone. Same upstream, resolver, headers and timeouts
+    # as the block above.
+    location = ${BASE_PATH}/api/coach/plan {
+        client_max_body_size 21m;
+        resolver ${RESOLVER} valid=10s ipv6=off;
+        set $api_upstream http://${BACKEND}:${PORT};
+        proxy_pass $api_upstream$api_request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header CF-Connecting-IP "${CF_CONNECTING_IP}";
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
     # Photos and videos of custom exercises (PUT and GET under api/media/). Nginx picks the
     # longest matching prefix, so this block takes those requests from the one above wherever it
     # sits. Same upstream, resolver and headers; what differs is the body. A video may be tens of

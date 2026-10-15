@@ -2314,4 +2314,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'الخطة المبنية من هذا الملف تحلّ محلّ الاقتراحات التي تنتظرك. لن تُطبَّق.',
   'That PDF has more pages than the Coach reads.': 'يحتوي ملف PDF هذا على صفحات أكثر مما يقرأه المدرب.',
   'Up to {0} pages.': 'حتى {0} صفحة.',
+  'Images up to {0} MB.': 'الصور حتى {0} ميغابايت.',
 }

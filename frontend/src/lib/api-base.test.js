@@ -132,13 +132,17 @@ describe('what nginx forwards to the API', () => {
         expect(block).toBeTruthy()
         expect(block[1]).toMatch(new RegExp('\\bproxy_pass\\s+\\$api_upstream\\$' + conf.match(MAP)[1] + ';'))
       }
+      // The plan route's own block (a bigger body, for attached files) forwards the same way.
+      const plan = conf.match(new RegExp('location = ' + base + '/api/coach/plan \\{([^}]*)\\}'))
+      expect(plan).toBeTruthy()
+      expect(plan[1]).toMatch(new RegExp('\\bproxy_pass\\s+\\$api_upstream\\$' + conf.match(MAP)[1] + ';'))
     }
   })
 
   it('no block hands the API the target as it came in', () => {
     const passes = [...render('/gym').matchAll(/\bproxy_pass\s+([^;]+);/g)].map(m => m[1])
       .filter(to => to.startsWith('$api_upstream'))
-    expect(passes.length).toBe(2)
+    expect(passes.length).toBe(3)   // /api/, /api/media/ and the exact /api/coach/plan
     for (const to of passes) expect(to).toBe('$api_upstream$api_request_uri')
   })
 

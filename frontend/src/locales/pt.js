@@ -2259,4 +2259,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'Um plano feito a partir deste ficheiro fica no lugar das sugestões que te esperam. Elas não são aplicadas.',
   'That PDF has more pages than the Coach reads.': 'Esse PDF tem mais páginas do que o Treinador lê.',
   'Up to {0} pages.': 'Até {0} páginas.',
+  'Images up to {0} MB.': 'Imagens até {0} MB.',
 }

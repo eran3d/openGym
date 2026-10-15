@@ -2270,4 +2270,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'แผนที่สร้างจากไฟล์นี้จะเข้ามาแทนคำแนะนำที่รอคุณอยู่ คำแนะนำเหล่านั้นจะไม่ถูกนำไปใช้',
   'That PDF has more pages than the Coach reads.': 'PDF นี้มีหน้ามากกว่าที่โค้ชอ่าน',
   'Up to {0} pages.': 'ไม่เกิน {0} หน้า',
+  'Images up to {0} MB.': 'รูปภาพไม่เกิน {0} MB',
 }

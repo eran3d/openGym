@@ -2256,4 +2256,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'План із цього файлу займе місце пропозицій, які на вас чекають. Їх не буде застосовано.',
   'That PDF has more pages than the Coach reads.': 'У цьому PDF більше сторінок, ніж читає Тренер.',
   'Up to {0} pages.': 'До {0} сторінок.',
+  'Images up to {0} MB.': 'Зображення до {0} МБ.',
 }

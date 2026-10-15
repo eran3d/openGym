@@ -2263,4 +2263,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'План из этого файла займёт место предложений, которые вас ждут. Они не будут применены.',
   'That PDF has more pages than the Coach reads.': 'В этом PDF больше страниц, чем читает Тренер.',
   'Up to {0} pages.': 'До {0} страниц.',
+  'Images up to {0} MB.': 'Изображения до {0} МБ.',
 }

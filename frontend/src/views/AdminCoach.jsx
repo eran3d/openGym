@@ -331,15 +331,15 @@ export default function AdminCoach() {
               onBlur={e => +e.target.value !== d.maxOutputTokens && patch({ maxOutputTokens: +e.target.value })} /></span></div>
 
           {d.attachments && <>
-            <div className="adm-hint" style={{ marginTop: 10 }}>Files a person can attach to a plan request: a PDF or a photo of a plan they already have, read by the model itself. A message with files is one run against the caps above. 0 files switches attachments off; at most 3.5 MB per request fits the request body. Bytes are no measure of cost: a provider reads every PDF page as text and as an image, so a small scan of many pages costs more than a large photo. The page limit is the one that bounds the bill. {d.attachments.supported ? '' : 'The provider in use cannot read files, so the chat shows no attach button.'}</div>
+            <div className="adm-hint" style={{ marginTop: 10 }}>Files a person can attach to a plan request: a PDF or a photo of a plan they already have, read by the model itself. A message with files is one run against the caps above. 0 files switches attachments off. At most 15 MB per request: that is what the plan route's body (21 MB, nginx and API) carries once base64 has added its third. What the providers take: Anthropic 32 MB per request, 100 PDF pages, 7.5 MB per image (enforced here); OpenAI 50 MB per request; Gemini 100 MB of inline data. Bytes are no measure of cost: a provider reads every PDF page as text and as an image, so a small scan of many pages costs more than a large photo. The page limit is the one that bounds the bill. {d.attachments.supported ? '' : 'The provider in use cannot read files, so the chat shows no attach button.'}</div>
             <div className="adm-kv"><span className="k">Files per message</span>
               <span className="v"><input className="num" type="number" min="0" max="5" defaultValue={d.attachments.maxCount} disabled={busy}
                 onBlur={e => +e.target.value !== d.attachments.maxCount && patch({ attachments: { maxCount: +e.target.value } })} /></span></div>
             <div className="adm-kv"><span className="k">MB per file</span>
-              <span className="v"><input className="num" type="number" min="0.1" max="3.5" step="0.1" defaultValue={+(d.attachments.maxBytes / 1048576).toFixed(1)} disabled={busy}
+              <span className="v"><input className="num" type="number" min="0.1" max="15" step="0.5" defaultValue={+(d.attachments.maxBytes / 1048576).toFixed(1)} disabled={busy}
                 onBlur={e => Math.round(+e.target.value * 1048576) !== d.attachments.maxBytes && patch({ attachments: { maxBytes: Math.round(+e.target.value * 1048576) } })} /></span></div>
             <div className="adm-kv"><span className="k">MB per request</span>
-              <span className="v"><input className="num" type="number" min="0.1" max="3.5" step="0.1" defaultValue={+(d.attachments.maxTotalBytes / 1048576).toFixed(1)} disabled={busy}
+              <span className="v"><input className="num" type="number" min="0.1" max="15" step="0.5" defaultValue={+(d.attachments.maxTotalBytes / 1048576).toFixed(1)} disabled={busy}
                 onBlur={e => Math.round(+e.target.value * 1048576) !== d.attachments.maxTotalBytes && patch({ attachments: { maxTotalBytes: Math.round(+e.target.value * 1048576) } })} /></span></div>
             <div className="adm-kv"><span className="k">Pages per PDF</span>
               <span className="v"><input className="num" type="number" min="1" max="100" defaultValue={d.attachments.maxPages} disabled={busy}

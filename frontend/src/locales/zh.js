@@ -2259,4 +2259,5 @@ export default {
   'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': '根据此文件生成的计划将取代正在等你的建议。这些建议不会被应用。',
   'That PDF has more pages than the Coach reads.': '该 PDF 的页数超过了教练能读取的范围。',
   'Up to {0} pages.': '最多 {0} 页。',
+  'Images up to {0} MB.': '图片最多 {0} MB。',
 }
