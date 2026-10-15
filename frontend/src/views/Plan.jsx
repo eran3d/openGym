@@ -6,7 +6,7 @@ import { DAYN, DAYS, weekOrder, weekStartOf, uid, exCount, routineCount, todayIS
 import { t } from '../lib/i18n.js'
 import {
   dayAssignSheet, starterPlanSheet, confirmSheet, menuSheet,
-  planHasRoutines, exportPlanFile, printWholePlan, importPlanFile,
+  planHasRoutines, exportPlanFile, printWholePlan, importPlanFile, folderNameSheet,
 } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Row, Section, Segmented } from '../components/ui.jsx'
@@ -22,6 +22,9 @@ import { coachAvailable } from '../lib/coach.js'
 import { queueOf, queueView } from '../lib/queue.js'
 import { deriveSessionName } from '../lib/session-merge.js'
 import { markUndone, undoMarks } from '../lib/sync-merge.js'
+import {
+  addFolder, deleteFolder, folderIdOf, groupRoutines, moveFolder, moveInGroup, moveToFolder, renameFolder,
+} from '../lib/routine-folders.js'
 import {
   scheduleModeOf, queueRecovery, rotationIds, saveRotation, startNewPass, startPass, stopPass,
   chooseRotation, chooseFixedWeek,
@@ -377,19 +380,32 @@ function Schedule({ S, update, nav, mode }) {
 
 /* ================================ Routines ================================ */
 
+// Which folders are closed on this device (docs/dev/ROUTINE_FOLDERS.md): a view choice like the
+// Schedule/Routines toggle above, so it lives in this browser's storage and never syncs.
+export const FOLDERS_CLOSED_KEY = 'gym_plan_folders_closed'
+const readClosed = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(FOLDERS_CLOSED_KEY) || '[]')
+    return Array.isArray(v) ? v.filter(x => typeof x === 'string') : []
+  } catch { return [] }
+}
+
 function Routines({ S, update, nav }) {
   const [edit, setEdit] = useState(false)
   const [flash, setFlash] = useState(null)
+  const [closed, setClosedState] = useState(readClosed)
+  const toggle = id => {
+    const next = closed.includes(id) ? closed.filter(x => x !== id) : [...closed, id]
+    setClosedState(next)
+    try { localStorage.setItem(FOLDERS_CLOSED_KEY, JSON.stringify(next)) } catch { /* private mode: not remembered */ }
+  }
   const swipe = workoutControls(S).swipeSets
   const routines = S.routines
-  // The order of this list is the order of `S.routines`, and every other screen reads the same
-  // array (the Start screen, the day sheets, the routine pickers), so moving a routine here moves
-  // it everywhere (#142). Reordering lives behind Edit, like on an iPhone.
-  const reorder = useListReorder(routines.length, (from, to) => update(s => {
-    if (to < 0 || to >= s.routines.length) return
-    const [m] = s.routines.splice(from, 1)
-    s.routines.splice(to, 0, m)
-  }))
+  // Folders group this list only (lib/routine-folders.js). The order inside each group is the
+  // order of `S.routines`, and every other screen reads that same array (the Start screen, the
+  // day sheets, the routine pickers), so moving a routine here moves it everywhere (#142).
+  // Reordering lives behind Edit, like on an iPhone.
+  const { loose, folders } = groupRoutines(S)
 
   const addRoutine = () => {
     const r = { id: uid(), name: t('New routine'), emoji: DEFAULT_GLYPH, ex: [] }
@@ -400,7 +416,7 @@ function Routines({ S, update, nav }) {
   // place of its confirm (v1.3.11): the swipe and the edit-mode minus both land here.
   const remove = r => deleteRoutineWithUndo(r.id)
   // The swipe's other side: a copy right below the original, named the way "Copy routine" names
-  // one, and staying on this list rather than opening it.
+  // one, and staying on this list rather than opening it. It stays in the original's folder.
   const duplicate = r => {
     const copy = copyRoutine(r, t('Copy'))
     update(s => {
@@ -419,41 +435,110 @@ function Routines({ S, update, nav }) {
   const daysOf = id => order.filter(d => [].concat(S.week[d] || []).includes(id)).map(d => t(DAYS[d]))
   const sub = r => [exCount(r.ex.length), daysOf(r.id).join(', ')].filter(Boolean).join(' · ')
 
+  const newFolder = () => folderNameSheet({ title: t('New folder'), onSave: name => update(s => { addFolder(s, name) }) })
+  const folderMenu = f => menuSheet({
+    title: f.name,
+    items: [
+      { icon: 'pencil', label: t('Rename folder'), onClick: () => folderNameSheet({ title: t('Rename folder'), value: f.name, onSave: name => update(s => { renameFolder(s, f.id, name) }) }) },
+      { icon: 'trash', label: t('Delete folder'), danger: true, onClick: () => confirmSheet({
+        title: t('Delete “{0}”?', f.name),
+        message: t('The routines in it stay. They just move out of the folder.'),
+        confirmText: t('Delete folder'), danger: true,
+        onConfirm: () => update(s => { deleteFolder(s, f.id) }),
+      }) },
+    ],
+  })
+  // Where a routine goes: one field of the routine (moveToFolder), never its place in the list.
+  const moveSheet = r => {
+    const cur = folderIdOf(S, r)
+    menuSheet({
+      title: t('Move to folder'), subtitle: r.name,
+      items: [
+        { icon: 'list', label: t('Not in a folder'), on: cur == null, onClick: () => update(s => { moveToFolder(s, r.id, null) }) },
+        ...folders.map(({ folder: f }) => ({ icon: 'folder', label: f.name, on: cur === f.id, onClick: () => update(s => { moveToFolder(s, r.id, f.id) }) })),
+        { icon: 'plus', label: t('New folder'), onClick: () => folderNameSheet({ title: t('New folder'), onSave: name => update(s => {
+          const f = addFolder(s, name)
+          if (f) moveToFolder(s, r.id, f.id)
+        }) }) },
+      ],
+    })
+  }
+  const group = (folderId, rs) => <RoutineGroup key={folderId ?? ''} folderId={folderId} routines={rs} edit={edit} swipe={swipe}
+    flash={flash} sub={sub} update={update} nav={nav} onRemove={remove} onCopy={duplicate} onMove={moveSheet} />
+
   return <>
     <div className="row between plan-sec-h plan-routines-bar">
-      {routines.length > 0
+      {routines.length > 0 || folders.length > 0
         ? <button className="plan-textbtn" aria-pressed={edit} onClick={() => setEdit(e => !e)}>{edit ? t('Done') : t('Edit')}</button>
         : <span />}
-      <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New routine')}</Button>
+      <div className="row plan-sec-acts" style={{ gap: 6 }}>
+        <Button size="sm" variant="tinted" icon="folder" onClick={newFolder}>{t('New folder')}</Button>
+        <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New routine')}</Button>
+      </div>
     </div>
-    {routines.length ? <>
-      {edit
-        ? <div className="list routine-list plan-routines is-editing" ref={reorder.listRef}>{routines.map((r, i) =>
-          <div key={r.id} data-reorder-row className="item plan-routine" style={reorder.rowStyle(i)}>
-            <button className="plan-minus" aria-label={t('Delete {0}', r.name)} title={t('Delete routine')} onClick={() => remove(r)}><Icon name="minus" /></button>
-            <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
-            <div className="grow"><div className="tt">{r.name}</div><div className="ss">{sub(r)}</div></div>
-            {routines.length > 1 && <button className="plan-handle" aria-label={t('Move {0}', r.name)} title={t('Drag to reorder')}
-              {...reorder.handle(i)}><Icon name="chevronsUpDown" /></button>}
-          </div>)}</div>
-        : <div className="list routine-list plan-routines">{routines.map(r => {
-          const row = <div key={r.id} className="item plan-routine" {...tappable(() => nav('/plan/r/' + r.id))}>
-            <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
-            <div className="grow"><div className="tt">{r.name}</div><div className="ss">{sub(r)}</div></div>
-            <Icon name="chevronRight" className="chev" /></div>
-          // Swipe (v1.3.11, Settings → Swipe actions): toward the start deletes with an Undo,
-          // toward the end duplicates. Edit's minus and the routine's own page stay the way in
-          // for a keyboard and a screen reader.
-          return swipe
-            ? <SwipeRow key={r.id} className="swrow-item" copyLabel={t('Duplicate')}
-              onDelete={() => remove(r)} onCopy={() => duplicate(r)}
-              flash={flash?.id === r.id ? flash.n : 0}>{row}</SwipeRow>
-            : row
-        })}</div>}
-      <p className="sect-f">{edit ? t('Drag to reorder. Tap the minus to delete.') : t('Tap a routine to edit it. Reorder and delete are behind Edit.')}</p>
+    {routines.length || folders.length ? <>
+      {(loose.length > 0 || !folders.length) && group(null, loose)}
+      {folders.map(({ folder: f, routines: rs }, i) => {
+        const open = !closed.includes(f.id)
+        return <section key={f.id} className="plan-folder" aria-label={f.name}>
+          <div className="row plan-folder-h">
+            <button className="plan-folder-t" aria-expanded={open} onClick={() => toggle(f.id)}>
+              <Icon name={open ? 'chevronDown' : 'chevronRight'} className="plan-folder-chev" />
+              <Icon name="folder" />
+              <span className="plan-folder-name">{f.name}</span>
+              <span className="plan-folder-n">{rs.length}</span>
+            </button>
+            {edit && folders.length > 1 && <>
+              <button className="iconbtn plan-folder-mv" aria-label={t('Move {0} up', f.name)} title={t('Move up')}
+                disabled={i === 0} onClick={() => update(s => { moveFolder(s, f.id, -1) })}><Icon name="arrowUp" /></button>
+              <button className="iconbtn plan-folder-mv" aria-label={t('Move {0} down', f.name)} title={t('Move down')}
+                disabled={i === folders.length - 1} onClick={() => update(s => { moveFolder(s, f.id, 1) })}><Icon name="arrowDown" /></button>
+            </>}
+            <button className="iconbtn plan-folder-mv" aria-label={t('Folder options for {0}', f.name)} title={t('Folder options')}
+              onClick={() => folderMenu(f)}><Icon name="more" /></button>
+          </div>
+          {open && (rs.length
+            ? group(f.id, rs)
+            : <div className="plan-folder-empty small dim">{t('Nothing in here yet. Move a routine in with Edit.')}</div>)}
+        </section>
+      })}
+      <p className="sect-f">{!edit ? t('Tap a routine to edit it. Reorder and delete are behind Edit.')
+        : folders.length ? t('Drag to reorder. Tap the minus to delete, the folder to move a routine.')
+          : t('Drag to reorder. Tap the minus to delete.')}</p>
     </> : <>
       <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Make one, or grab the starter plan to get going.')}</div>
       <Button icon="clipboard" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>
     </>}
   </>
+}
+
+/* One group of the Routines list: the routines in no folder, or one folder's. Its own component
+   so each group has its own reorder (a drag stays inside its group, moveInGroup). */
+function RoutineGroup({ folderId, routines, edit, swipe, flash, sub, update, nav, onRemove, onCopy, onMove }) {
+  const reorder = useListReorder(routines.length, (from, to) => update(s => { moveInGroup(s, folderId, from, to) }))
+  if (edit) {
+    return <div className="list routine-list plan-routines is-editing" ref={reorder.listRef}>{routines.map((r, i) =>
+      <div key={r.id} data-reorder-row className="item plan-routine" style={reorder.rowStyle(i)}>
+        <button className="plan-minus" aria-label={t('Delete {0}', r.name)} title={t('Delete routine')} onClick={() => onRemove(r)}><Icon name="minus" /></button>
+        <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
+        <div className="grow"><div className="tt">{r.name}</div><div className="ss">{sub(r)}</div></div>
+        <button className="plan-folder-btn" aria-label={t('Move {0} to a folder', r.name)} title={t('Move to folder')} onClick={() => onMove(r)}><Icon name="folder" /></button>
+        {routines.length > 1 && <button className="plan-handle" aria-label={t('Move {0}', r.name)} title={t('Drag to reorder')}
+          {...reorder.handle(i)}><Icon name="chevronsUpDown" /></button>}
+      </div>)}</div>
+  }
+  return <div className="list routine-list plan-routines">{routines.map(r => {
+    const row = <div key={r.id} className="item plan-routine" {...tappable(() => nav('/plan/r/' + r.id))}>
+      <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
+      <div className="grow"><div className="tt">{r.name}</div><div className="ss">{sub(r)}</div></div>
+      <Icon name="chevronRight" className="chev" /></div>
+    // Swipe (v1.3.11, Settings → Swipe actions): toward the start deletes with an Undo,
+    // toward the end duplicates. Edit's minus and the routine's own page stay the way in
+    // for a keyboard and a screen reader.
+    return swipe
+      ? <SwipeRow key={r.id} className="swrow-item" copyLabel={t('Duplicate')}
+        onDelete={() => onRemove(r)} onCopy={() => onCopy(r)}
+        flash={flash?.id === r.id ? flash.n : 0}>{row}</SwipeRow>
+      : row
+  })}</div>
 }

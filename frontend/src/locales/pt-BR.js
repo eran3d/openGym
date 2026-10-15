@@ -1403,6 +1403,22 @@ export const PT_BR_OVERRIDES = {
   'Gentle, for headphones or a quiet room.': 'Suave, para fones de ouvido ou um lugar silencioso.',
   'Fewer than two workouts in this period. Pick a longer one.': 'Menos de dois treinos neste período. Escolha um mais longo.',
   'Releases are checked on GitHub. The download is verified against its checksum before the installer opens.': 'As versões são verificadas no GitHub. O download é conferido pela soma de verificação antes de abrir o instalador.',
+  // Routine folders (docs/dev/ROUTINE_FOLDERS.md)
+  'New folder': 'Nova pasta',
+  'Rename folder': 'Renomear pasta',
+  'Delete folder': 'Excluir pasta',
+  'Folder name': 'Nome da pasta',
+  'Folder name, e.g. Push Pull Legs': 'Nome da pasta, ex.: Push Pull Legs',
+  'The routines in it stay. They just move out of the folder.': 'As rotinas dentro dela continuam. Só saem da pasta.',
+  'Move to folder': 'Mover para pasta',
+  'Not in a folder': 'Fora de pastas',
+  'Move {0} up': 'Subir {0}',
+  'Move {0} down': 'Descer {0}',
+  'Folder options': 'Opções da pasta',
+  'Folder options for {0}': 'Opções da pasta {0}',
+  'Nothing in here yet. Move a routine in with Edit.': 'Ainda não tem nada aqui. Mova uma rotina para cá em Editar.',
+  'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'Arraste para reordenar. Toque no sinal de menos para excluir e na pasta para mover uma rotina.',
+  'Move {0} to a folder': 'Mover {0} para uma pasta',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

@@ -110,17 +110,21 @@ function prTable(S, formula) {
 /** list_routines — names + counts of each routine in the user's plan. */
 export const listRoutines = {
   name: 'list_routines',
-  description: 'List the workout routines saved in the user\'s openGym profile (the same list the Plan screen shows). Each routine is a named set of exercises with set/rep targets. Use this to discover the plan structure before diving into a specific routine or today\'s workout.',
+  description: 'List the workout routines saved in the user\'s openGym profile (the same list the Plan screen shows). Each routine is a named set of exercises with set/rep targets, and `folder` is the name of the folder the user filed it in (null when none). Use this to discover the plan structure before diving into a specific routine or today\'s workout.',
   schema: {},
   handler: () => {
     const S = getState()
     if (!S) return noState()
+    // A routine's folder (Plan groups routines in folders): its name, or null when it is in none
+    // that exists. docs/dev/ROUTINE_FOLDERS.md.
+    const folderName = new Map((Array.isArray(S.routineFolders) ? S.routineFolders : []).filter(f => f && f.id != null).map(f => [f.id, f.name || '']))
     return {
       unit: S.unit || 'kg',
       routines: (S.routines || []).map(r => ({
         id: r.id,
         name: r.name,
         emoji: r.emoji || null,
+        folder: r.folder != null && folderName.has(r.folder) ? folderName.get(r.folder) : null,
         exercise_count: (r.ex || []).length,
         superset_groups: [...new Set((r.ex || []).map(e => e.sg).filter(Boolean))].length || 0,
         policy: policyFor(null, r, 'reps'),

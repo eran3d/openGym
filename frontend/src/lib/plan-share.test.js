@@ -306,3 +306,36 @@ describe('parsePlan refuses a file that is not a plan in words', () => {
     try { parsePlan('{oops') } catch (e) { expect(e.code).toBe('not-plan') }
   })
 })
+
+describe('plan-share folders', () => {
+  const source = () => ({
+    unit: 'kg', week: {}, customEx: [],
+    routineFolders: [{ id: 'F', name: 'PPL', _ts: 1 }, { id: 'U', name: 'Unused' }],
+    routines: [
+      { id: 'a', name: 'Push', folder: 'F', ex: [{ id: '0025', sets: 3, reps: 5 }] },
+      { id: 'b', name: 'Legs', folder: 'gone', ex: [{ id: '0025', sets: 3, reps: 5 }] },
+    ],
+  })
+  it('carries the folders its routines use, never one they do not, nor a dangling id', () => {
+    const bundle = buildPlanBundle(source(), 'Plan')
+    expect(bundle.folders).toEqual([{ id: 'F', name: 'PPL' }])
+    expect(bundle.routines.map(r => r.folder)).toEqual(['F', undefined])
+    expect('folders' in buildPlanBundle({ ...source(), routineFolders: [] }, 'Plan')).toBe(false)
+  })
+  it('import reuses a folder of the same name and adds any other', () => {
+    const bundle = parsePlan(JSON.stringify({ ...buildPlanBundle(source(), 'Plan'),
+      folders: [{ id: 'F', name: 'PPL' }, { id: 'N', name: 'New one' }],
+      routines: [...buildPlanBundle(source(), 'Plan').routines, { id: 'c', name: 'Pull', folder: 'N', ex: [] }] }))
+    const target = { unit: 'kg', week: {}, customEx: [], routines: [], routineFolders: [{ id: 'mine', name: ' ppl ' }] }
+    mergePlan(target, bundle)
+    expect(target.routineFolders.map(f => f.name)).toEqual([' ppl ', 'New one'])
+    const n = target.routineFolders[1].id
+    expect(target.routines.map(r => r.folder)).toEqual(['mine', undefined, n])
+  })
+  it('an older plan file without folders imports as before', () => {
+    const target = { unit: 'kg', week: {}, customEx: [], routines: [] }
+    mergePlan(target, parsePlan(JSON.stringify(buildPlanBundle({ ...source(), routineFolders: [] }, 'Plan'))))
+    expect(target.routineFolders).toBeUndefined()
+    expect(target.routines.every(r => !('folder' in r))).toBe(true)
+  })
+})

@@ -42,7 +42,7 @@ as it did.
 ## 2. Merge rules (client `lib/sync-merge.js`, server `api/sync-stamps.js`)
 
 All of this is the existing machinery with one more list plugged in. Exact names, for a client
-that ports it (the iOS app):
+that ports it:
 
 | What | Rule | Stamp |
 | --- | --- | --- |
@@ -96,10 +96,10 @@ reads as no folder" is what keeps the routines visible on every device, whatever
   the stored copy (`stampUnstamped`): `routineFolders` is in `ENTRY_LISTS` (per field `_f`), in
   `DEL_LISTS` (a folder it removed is tombstoned), and a reorder of the folders stamps
   `edited.routineFolderOrder` (an older copy's order of folders reordered since is put back).
-- **The iOS app (OpenGym-Swift).** It keeps fields it does not know (`extra`) and writes them back,
-  so `routines[].folder` and `routineFolders` survive its pushes. Its own 409 merge must leave
-  `routineFolders` and `edited.routineFolderOrder`, `deleted.routineFolders` to the server's copy
-  until it implements the rules above.
+- **Other clients of the sync API** that keep fields they do not know and write them back keep
+  both fields as they are. One that merges a 409 itself should leave `routineFolders`,
+  `edited.routineFolderOrder` and `deleted.routineFolders` to the server's copy until it
+  implements the rules above.
 
 ## 4. Everything else that reads routines
 

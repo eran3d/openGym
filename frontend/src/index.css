@@ -2033,6 +2033,23 @@ button.wl-summary{width:100%;padding:0 0 10px;text-align:start;border-radius:var
 }
 .plan-handle:active{cursor:grabbing;color:var(--label-2)}
 .plan [data-reorder-row]{transition:transform var(--fast) var(--ease)}
+/* Routine folders (docs/dev/ROUTINE_FOLDERS.md): a header that opens and closes the folder, then
+   the folder's routines as one more list */
+.plan-folder{margin-top:18px}
+.plan-folder-h{gap:6px;margin:0 0 8px}
+.plan-folder-t{
+  flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:6px 2px;text-align:start;
+  font-size:15px;font-weight:600;color:var(--label);
+}
+.plan-folder-t>.icn{flex:none;color:var(--label-2)}
+.plan-folder-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plan-folder-n{flex:none;font-weight:400;color:var(--label-3);font-variant-numeric:tabular-nums}
+[dir="rtl"] .plan-folder-t[aria-expanded="false"] .plan-folder-chev{transform:scaleX(-1)}
+.plan-folder-mv{width:32px;height:32px;font-size:16px}
+.plan-folder-mv:disabled{opacity:.35}
+.plan-folder-empty{padding:4px 2px 2px}
+.plan-folder-btn{flex:none;display:grid;place-items:center;width:32px;height:32px;color:var(--acc);font-size:18px;position:relative}
+.plan-folder-btn::before{content:'';position:absolute;inset:-4px}
 .plan-link{margin-top:24px}
 .plan-empty{padding:28px 20px}
 /* Stats: the card Plan links to clears the sticky banners when it is scrolled to */

@@ -21,6 +21,7 @@ import LineChart from './components/LineChart.jsx'
 import Stepper from './components/Stepper.jsx'
 import { durationSheet } from './components/DurationWheel.jsx'
 import { SG_NAME_MAX } from './lib/superset-meta.js'
+import { cleanFolderName, FOLDER_NAME_MAX } from './lib/routine-folders.js'
 import { REST_MAX, fmtRest } from './lib/duration.js'
 import Icon from './components/Icon.jsx'
 import { Button, Slider, Switch, Segmented, SelectRow, Row, TextField, NumberField, MultiSelectRow } from './components/ui.jsx'
@@ -3142,6 +3143,25 @@ function RenameWorkout({ close }) {
   </>
 }
 export const renameWorkoutSheet = () => ui().openSheet(close => <RenameWorkout close={close} />)
+
+// A routine folder's name (Plan → Routines, lib/routine-folders.js): a new folder or a rename.
+function FolderName({ title, value, onSave, close }) {
+  const inputRef = useRef(null)
+  const onFocus = useSheetKeyboard(inputRef)
+  const [name, setName] = useState(value || '')
+  const clean = cleanFolderName(name)
+  const save = () => { if (!clean) return; onSave(clean); close() }
+  return <>
+    <h3>{title}</h3>
+    <input ref={inputRef} className="input" type="text" autoFocus maxLength={FOLDER_NAME_MAX} value={name}
+      placeholder={t('Folder name, e.g. Push Pull Legs')} aria-label={t('Folder name')}
+      onFocus={onFocus} onChange={e => setName(e.target.value)}
+      onKeyDown={e => { if (e.key === 'Enter') save() }} />
+    <div style={{ height: 18 }} />
+    <Button variant="primary" disabled={!clean} onClick={save}>{t('Save')}</Button>
+  </>
+}
+export const folderNameSheet = ({ title, value, onSave }) => ui().openSheet(close => <FolderName title={title} value={value} onSave={onSave} close={close} />)
 
 // A superset's own name and rest between rounds (#292), from the routine editor.
 function SupersetSettings({ meta, onSave, close }) {

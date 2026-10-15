@@ -47,11 +47,13 @@ const workoutTime = w => Number(w?._ts) || Number(w?.end) || Number(w?.start) ||
 export const DEL_LISTS = {
   workouts: workoutKey, routines: x => x?.id, customEx: x => x?.id, bodyweight: e => e?.d,
   measurements: e => e?.d, gymCards: x => x?.id, equipProfiles: x => x?.id, favEx: x => x,
+  routineFolders: x => x?.id,
 };
 const DEL_TIME = {
   workouts: workoutTime, routines: x => Number(x?._ts) || 0, customEx: x => Number(x?._ts) || 0,
   bodyweight: e => Number(e?.t) || 0, measurements: e => Number(e?.t) || 0,
   gymCards: x => Number(x?._ts) || 0, equipProfiles: x => Number(x?._ts) || 0,
+  routineFolders: x => Number(x?._ts) || 0,
 };
 export const DELETED_MAX = 5000;
 const capStamps = m => {
@@ -63,6 +65,7 @@ const capStamps = m => {
 };
 const OWN_MERGE = new Set([
   '_ts', '_rev', '_wid', '_wids', '_unstamped', '_prior', 'active', 'unit', 'unitSet', 'resetAt', 'resetIds', 'deleted', 'edited', 'undone', 'routineOrder',
+  'routineFolderOrder', 'routineFolders',
   'workouts', 'routines', 'customEx', 'equipProfiles', 'gymCards', 'bodyweight', 'measurements', 'favEx',
   'exWeights', 'balanceOverrides', 'loadKind', 'plates', 'dbLoad', 'dumbbells', 'dayNotes',
 ]);
@@ -71,7 +74,7 @@ const PER_KEY = new Set(['week', 'dayPlan', 'exNotes', 'barWeights']);
 // key by the app, so never stamped here as a whole setting. dayNotes is a note per day off.
 export const STAMPED_MAPS = ['balanceOverrides', 'loadKind', 'plates', 'dbLoad', 'dumbbells', 'dayNotes'];
 const ENTRY_META = new Set(['id', '_ts', '_f', '_u']);
-const ENTRY_LISTS = ['routines', 'customEx', 'equipProfiles', 'gymCards', 'workouts'];
+const ENTRY_LISTS = ['routines', 'routineFolders', 'customEx', 'equipProfiles', 'gymCards', 'workouts'];
 
 // Whether removal record `v` replaces `cur`: the later stamp, and on a tie the add-back.
 const laterDel = (v, cur) => {
@@ -294,11 +297,13 @@ function stampUnstamped(cur, next, sent, now, own = null) {
       else if (!moved(k)) ed[k] = now;
     }
   }
-  // The order of the routines (sync-merge.js ORDER_KEY), the same way: a reorder is stamped, an
-  // older copy's order of routines another device reordered since is put back as stored.
-  if (Array.isArray(next.routines) && orderMoved(cur.routines, next.routines)) {
-    if (stale(ORDER_KEY)) next.routines = inOrderOf(cur.routines, next.routines);
-    else if (!moved(ORDER_KEY)) ed[ORDER_KEY] = now;
+  // The order of the routines and of their folders (sync-merge.js ORDERED), the same way: a
+  // reorder is stamped, an older copy's order of a list another device reordered since is put
+  // back as stored.
+  for (const [f, key] of Object.entries(ORDERED)) {
+    if (!Array.isArray(next[f]) || !orderMoved(cur[f], next[f])) continue;
+    if (stale(key)) next[f] = inOrderOf(cur[f], next[f]);
+    else if (!moved(key)) ed[key] = now;
   }
   if (Object.keys(ed).length) next.edited = ed;
   // Entries edited without stamps of their own: a routine, a custom exercise, a profile, a card,
@@ -333,6 +338,8 @@ function stampUnstamped(cur, next, sent, now, own = null) {
 }
 
 const ORDER_KEY = 'routineOrder';
+// The lists whose order the user sets, and the stamp of that order in `edited`.
+const ORDERED = { routines: ORDER_KEY, routineFolders: 'routineFolderOrder' };
 /** Whether two lists hold the routines both have in a different order (sync-merge.js orderMoved). */
 export function orderMoved(a, b) {
   const ida = list(a).map(r => r?.id).filter(id => id != null), idb = list(b).map(r => r?.id).filter(id => id != null);
@@ -378,6 +385,7 @@ const V139_DROPS = {
   customEx: new Set(['media', 'url']),
   equipProfiles: new Set(),
   gymCards: new Set(),
+  routineFolders: new Set(),
   workouts: new Set(['media', 'note', 'name', 'bw', 'prs', 'vol', 'routineIds']),
   'workouts.entries': new Set(['sg', 'note', 'notePin', 'noProg', 'topW']),
   'workouts.entries.sets': new Set(['w', 'r', 'sec', 'min', 'km', 'dist', 'speed', 'rir', 'rpe', 'planSec', 'note',
