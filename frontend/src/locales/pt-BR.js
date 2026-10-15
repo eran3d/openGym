@@ -1438,6 +1438,19 @@ export const PT_BR_OVERRIDES = {
   'Nothing in here yet. Move a routine in with Edit.': 'Ainda não tem nada aqui. Mova uma rotina para cá em Editar.',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'Arraste para reordenar. Toque no sinal de menos para excluir e na pasta para mover uma rotina.',
   'Move {0} to a folder': 'Mover {0} para uma pasta',
+  // --- Coach: import a program into the library (docs/dev/coach-import.md) ---
+  'A PDF or photo of a program, copied into your library as written': 'Um PDF ou foto de um programa, copiado do jeito que está para a sua biblioteca',
+  'An imported program takes the place of the proposal waiting for you. It is not applied.': 'Um programa importado substitui a proposta que está esperando por você. Ela não é aplicada.',
+  'Attach the program, or describe it in your message.': 'Anexe o programa ou descreva-o na sua mensagem.',
+  'Discarded. Send the program again whenever you like.': 'Descartado. Envie o programa de novo quando quiser.',
+  'Import this program into my library.': 'Importe este programa para a minha biblioteca.',
+  'Reading the program…': 'Lendo o programa…',
+  'Save to library': 'Salvar na biblioteca',
+  'Saved to your library. Your week was not changed.': 'Salvo na sua biblioteca. Sua semana não foi alterada.',
+  'Saved to your library': 'Salvo na sua biblioteca',
+  'Saved! {0} routines are in the folder “{1}”. Nothing is scheduled: start one from Plan when you train.': 'Salvo! {0} rotinas estão na pasta “{1}”. Nada está agendado: comece uma pelo Plano quando for treinar.',
+  'Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.': 'Salvo! {0} rotinas estão na sua biblioteca. Nada está agendado: comece uma pelo Plano quando for treinar.',
+  'The routines go into a folder named after the program, exactly as written. Your week stays as it is.': 'As rotinas vão para uma pasta com o nome do programa, exatamente como escritas. Sua semana continua como está.',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

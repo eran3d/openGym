@@ -21,21 +21,22 @@ import { t, tn } from '../lib/i18n.js'
 import { fmtDate, fmtNum, DAYS, weekOrder, weekStartOf } from '../lib/format.js'
 import { exLine } from '../lib/history.js'
 import { speedUnitOf } from '../lib/speed.js'
+import { fmtRest } from '../lib/duration.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import {
   coachAvailable, hasConsent, emptyCoach, appendChat, recordTiming, estimateMs, profileLines,
-  markStale, applicable, applyChangeSet, applyCreatedPlan, recordDismissal, recordDebrief, logEntry,
+  markStale, applicable, applyChangeSet, applyCreatedPlan, applyImport, recordDismissal, recordDebrief, logEntry,
   changeTitle, changeValues, exName, canRevert, revertLast
 } from '../lib/coach.js'
 import { insightsFor, sessionInsights } from '../lib/coach-insights.js'
-import { useCoachStatus, requestReview, requestDebrief, requestPlan, refinePlan, resolvePending, cohortStats, setCohortShare, jobErrorText, awaitedJob, settleAwaited, JOB_ERRORS } from '../lib/coach-api.js'
+import { useCoachStatus, requestReview, requestDebrief, requestPlan, refinePlan, importProgram, resolvePending, cohortStats, setCohortShare, jobErrorText, awaitedJob, settleAwaited, JOB_ERRORS } from '../lib/coach-api.js'
 import { checkPicked, readAttachment, acceptOf, attachmentErrorText } from '../lib/coach-attachments.js'
 import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import LineChart from '../components/LineChart.jsx'
-import { Button, Check, Switch, Section, Row, SelectRow } from '../components/ui.jsx'
+import { Button, Check, Switch, Section, Row, SelectRow, Segmented } from '../components/ui.jsx'
 import '../coach.css'
 
 export default function CoachChat() {
@@ -53,6 +54,9 @@ export default function CoachChat() {
   // Files picked for the next message, already read: { name, mediaType, size, data }. They live
   // here until sent and are never written to the store, so a reload or a sync never carries them.
   const [files, setFiles] = useState([])
+  // What picked files are for: a plan built for this person, or the program copied into the
+  // library as written (docs/dev/coach-import.md).
+  const [fileMode, setFileMode] = useState('plan')
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const endRef = useRef(null)
@@ -130,6 +134,15 @@ export default function CoachChat() {
   }
 
   const send = () => {
+    // An import takes the place of whatever is waiting, a plan included.
+    if (canAttach && files.length && fileMode === 'import' && pending) {
+      return confirmSheet({
+        title: t('Replace what the Coach proposed?'),
+        message: t('An imported program takes the place of the proposal waiting for you. It is not applied.'),
+        confirmText: t('Replace'),
+        onConfirm: () => { doSend() }
+      })
+    }
     // A file makes this a plan request, and a finished plan takes the place of whatever is
     // waiting. Suggestions from a review are worth a question before they are pushed aside.
     if (canAttach && files.length && pending && pending.kind !== 'create') {
@@ -144,8 +157,9 @@ export default function CoachChat() {
   }
   const doSend = async () => {
     const withFiles = canAttach && files.length > 0
+    const importing = withFiles && fileMode === 'import'
     // A file with nothing typed beside it still says what it is for.
-    const msg = text.trim() || (withFiles ? t('Build my plan from the attached file.') : '')
+    const msg = text.trim() || (importing ? t('Import this program into my library.') : withFiles ? t('Build my plan from the attached file.') : '')
     if (!msg || busy) return
     setBusy(true)
     try {
@@ -153,13 +167,15 @@ export default function CoachChat() {
       // failed, or nothing was ever built — the message asks for one; a review would only
       // answer that there is no workout to look at, which is how people got stuck. A message
       // with files is always a plan request: that is the one job that reads them.
-      if (withFiles) await refinePlan(msg, files)
+      if (importing) await importProgram(text.trim(), files)
+      else if (withFiles) await refinePlan(msg, files)
       else if (pending?.kind === 'create' || !(S.routines || []).length) await refinePlan(msg)
       else await requestReview(msg)
       // The chat keeps the file names, never the files.
       update(s => appendChat(s, { role: 'user', kind: 'text', text: msg, ...(withFiles ? { files: files.map(f => f.name) } : {}) }))
       setText('')
       setFiles([])
+      setFileMode('plan')
       refresh()
     } catch (e) {
       // A server that refuses the job says so in English, with its class beside it: the class
@@ -211,6 +227,7 @@ export default function CoachChat() {
       {idle && !!(S.routines || []).length && <Row icon="wrench" iconTint="var(--orange)" title={t('Improve a routine')} subtitle={t('Pick one; the Coach works on just that')} accessory="chevron" onClick={() => { close(); pickRoutine() }} />}
       {community && <Row icon="person" iconTint="var(--teal)" title={t('Compare with others here')} subtitle={t('Anonymous medians from this instance')} accessory="chevron" onClick={() => { close(); showCohort() }} />}
       <Row icon="history" iconTint="var(--blue)" title={t('Everything the Coach proposed')} subtitle={t('Plans, suggestions and debriefs, kept')} accessory="chevron" onClick={() => { close(); showHistory() }} />
+      {idle && canAttach && <Row icon="download" iconTint="var(--teal)" title={t('Import a program')} subtitle={t('A PDF or photo of a program, copied into your library as written')} accessory="chevron" onClick={() => { close(); setFileMode('import'); fileRef.current?.click() }} />}
       {idle && <Row icon="clipboard" iconTint="var(--indigo)" title={t('Start a new plan')} subtitle={t('A fresh plan from your answers; your workouts stay')} accessory="chevron" onClick={() => { close(); askNewPlan() }} />}
       <Row icon="pencil" iconTint="var(--indigo)" title={t('Edit my answers')} subtitle={t('Goal, days, equipment, limits')} accessory="chevron" onClick={() => closeThenNav(close, '/coach/intake?edit=1')} />
       <Row icon="clock" iconTint="var(--purple)" title={t('Automatic reviews')} subtitle={cadenceLabel(coach)} accessory="chevron" onClick={() => { close(); cadenceSheet(openSheet, update) }} />
@@ -255,6 +272,8 @@ export default function CoachChat() {
 
       {pending && !job && (pending.kind === 'create'
         ? <PlanCard p={pending} S={S} update={update} toast={toast} nav={nav} refresh={refresh} />
+        : pending.kind === 'import'
+        ? <ImportCard p={pending} S={S} update={update} toast={toast} refresh={refresh} />
         : pending.kind === 'debrief'
           ? <DebriefCard p={pending} S={S} update={update} toast={toast} refresh={refresh} />
           : <ReviewCard p={pending} S={S} update={update} toast={toast} refresh={refresh} />)}
@@ -269,6 +288,8 @@ export default function CoachChat() {
         {!!(S.routines || []).length && <button className="qchip" onClick={pickRoutine}><Icon name="wrench" />{t('Improve a routine')}</button>}
         {community && <button className="qchip" onClick={showCohort}><Icon name="person" />{t('Compare')}</button>}
       </div>}
+      {canAttach && files.length > 0 && <Segmented className="attach-mode" value={fileMode} onChange={setFileMode}
+        options={[{ value: 'plan', label: t('Plan for me') }, { value: 'import', label: t('Import to library') }]} />}
       {canAttach && files.length > 0 && <div className="chips-row attach-row">
         {files.map((f, i) => <span key={i} className="qchip attach-chip">
           <Icon name="paperclip" /><span className="attach-name">{f.name}</span>
@@ -348,7 +369,7 @@ function Typing({ S, kind, coachLocal, config }) {
     // local model rather than something wrong; the next line already warns it takes longer.
     eta = local ? '' : t('This usually takes a minute or two.')
   }
-  const doing = kind === 'create' ? t('Building your plan…') : kind === 'debrief' ? t('Looking at that session…') : t('Reading your training…')
+  const doing = kind === 'create' ? t('Building your plan…') : kind === 'import' ? t('Reading the program…') : kind === 'debrief' ? t('Looking at that session…') : t('Reading your training…')
   return <div className="msg coach">
     <div className="bub typing"><i /><i /><i /></div>
     <div className="typing-eta">
@@ -429,14 +450,80 @@ const WeekStrip = ({ days, ws }) => <div className="pcard-week">
   {weekOrder(ws).map(d => <div key={d} className={'pcard-wd' + (days.has(d) ? ' on' : '')}>{t(DAYS[d])}</div>)}
 </div>
 
-const RoutineBlock = ({ r, unit, speedUnit }) => <div className="pcard-rt">
+const RoutineBlock = ({ r, unit, speedUnit, customEx }) => <div className="pcard-rt">
   <div className="pcard-rt-h"><b><Icon name={glyphOf(r.emoji)} />{r.name}</b><span>{tn('{0} exercise', '{0} exercises', r.ex.length)}</span></div>
   {!!r.why && <div className="pcard-why">{r.why}</div>}
-  {r.ex.map((e, i) => <div key={i} className="pcard-ex">
-    <div className="pcard-ex-r"><span className="pcard-ex-n">{exName(e.id)}</span><span className="pcard-ex-l">{exLine(e, unit, speedUnit)}</span></div>
-    {!!e.why && <div className="pcard-ex-w">{e.why}</div>}
-  </div>)}
+  {!!r.note && <div className="pcard-why">{r.note}</div>}
+  {r.ex.map((e, i) => {
+    // An import's own exercises are named in the proposal, not yet in the person's library.
+    const custom = (customEx || []).find(c => c.id === e.id)
+    const extra = [
+      e.warmupSets ? t('Warm-up sets: {0}', e.warmupSets) : '',
+      e.restSec ? t('{0} rest', fmtRest(e.restSec)) : '',
+      e.lastToFailure ? t('Last set to failure') : ''
+    ].filter(Boolean).join(' · ')
+    return <div key={i} className="pcard-ex">
+      <div className="pcard-ex-r"><span className="pcard-ex-n">{custom ? custom.n : exName(e.id)}</span><span className="pcard-ex-l">{exLine(e, unit, speedUnit)}</span></div>
+      {!!extra && <div className="pcard-ex-w">{extra}</div>}
+      {!!e.why && <div className="pcard-ex-w">{e.why}</div>}
+      {!!e.note && <div className="pcard-ex-w">{e.note}</div>}
+    </div>
+  })}
 </div>
+
+/* ---------------------------------- an imported program ---------------------------------- */
+
+function ImportCard({ p, S, update, toast, refresh }) {
+  const b = p.bundle
+  const [tab, setTab] = useState(0)
+  const r = b.routines[Math.min(tab, b.routines.length - 1)]
+
+  const save = () => {
+    try {
+      update(s => {
+        const res = applyImport(s, p)
+        const folder = (s.routineFolders || []).find(f => f.id === res.folder)
+        appendChat(s, { role: 'coach', kind: 'applied', ref: res.logId, text: folder
+          ? t('Saved! {0} routines are in the folder “{1}”. Nothing is scheduled: start one from Plan when you train.', res.routines, folder.name)
+          : t('Saved! {0} routines are in your library. Nothing is scheduled: start one from Plan when you train.', res.routines) })
+      })
+      resolvePending({ accepted: ['import'] }).catch(() => {})
+      toast(t('Saved to your library'))
+      refresh()
+    } catch (e) { toast(e.message || t('That proposal can’t be read.')) }
+  }
+  const discard = () => confirmSheet({
+    title: t('Discard this program?'), message: t('Nothing is saved, and you can ask again anytime.'),
+    confirmText: t('Discard'), danger: true,
+    onConfirm: () => {
+      update(s => { const ref = recordDismissal(s, p); appendChat(s, { role: 'coach', kind: 'dismissed', ref, text: t('Discarded. Send the program again whenever you like.') }) })
+      resolvePending({ dismissed: true }).catch(() => {})
+      refresh()
+    }
+  })
+
+  return <div className="msg coach" style={{ maxWidth: '100%', width: '100%' }}>
+    <div className="pcard" data-testid="import-card">
+      <div className="pcard-hd">
+        <div className="pcard-eyebrow">{t('Program')}</div>
+        <h2 className="pcard-h">{b.name || t('Imported program')}</h2>
+        {!!b.summary && <p className="pcard-sum">{b.summary}</p>}
+      </div>
+
+      {b.routines.length > 1 && <div className="pcard-tabs">
+        {b.routines.map((x, i) => <button key={x.id || i} className={'pcard-tab' + (i === tab ? ' on' : '')} onClick={() => setTab(i)}><Icon name={glyphOf(x.emoji)} />{x.name}</button>)}
+      </div>}
+
+      {r && <RoutineBlock r={r} unit={S.unit} speedUnit={speedUnitOf(S)} customEx={b.customEx} />}
+
+      <div className="pcard-note">{t('The routines go into a folder named after the program, exactly as written. Your week stays as it is.')}</div>
+      <div className="pcard-ft">
+        <Button variant="primary" icon="download" onClick={save}>{t('Save to library')}</Button>
+        <Button onClick={discard}>{t('Discard')}</Button>
+      </div>
+    </div>
+  </div>
+}
 
 /* ---------------------------------- a review ---------------------------------- */
 
@@ -654,12 +741,13 @@ function Recap({ entry, S, openSheet }) {
   const acc = decisions.filter(d => d.status === 'accepted').length
   const rej = decisions.length - acc
   const kind = entry.kind
-  const eyebrow = kind === 'create' ? t('Plan') : kind === 'debrief' ? t('Workout debrief') : t('Suggestions')
+  const eyebrow = kind === 'create' ? t('Plan') : kind === 'import' ? t('Program') : kind === 'debrief' ? t('Workout debrief') : t('Suggestions')
   const state = kind === 'debrief' ? null
     : entry.dismissed ? { cls: 'no', text: t('Declined') }
       : kind === 'create' ? { cls: 'yes', text: t('Imported') }
+        : kind === 'import' ? { cls: 'yes', text: t('Saved') }
         : rej ? { cls: 'mix', text: t('{0} accepted · {1} declined', acc, rej) } : { cls: 'yes', text: t('{0} accepted', acc) }
-  const title = kind === 'create' ? (entry.bundle?.name || t('Coach plan'))
+  const title = kind === 'create' || kind === 'import' ? (entry.bundle?.name || t('Coach plan'))
     : kind === 'debrief' ? (entry.workout?.name || t('Workout')) + (entry.score != null ? ` · ${entry.score}/10` : '')
       : tn('{0} suggestion', '{0} suggestions', decisions.length)
   return <button className="recap" onClick={open}>
@@ -686,8 +774,8 @@ function ProposalDetail({ entry, S }) {
   const weekDays = useMemo(() => new Set(Object.keys(b?.week || {}).map(Number)), [b])
   return <div className="pdetail">
     <div className="pcard-hd" style={{ paddingInline: 0 }}>
-      <div className="pcard-eyebrow">{kind === 'create' ? t('Plan') : kind === 'debrief' ? t('Workout debrief') : t('Suggestions')} · {fmtDate(new Date(entry.at).toISOString().slice(0, 10))}</div>
-      <h2 className="pcard-h">{kind === 'create' ? (b?.name || t('Coach plan')) : kind === 'debrief' ? (entry.workout?.name || t('Workout')) : tn('{0} suggestion', '{0} suggestions', entry.decisions?.length || 0)}</h2>
+      <div className="pcard-eyebrow">{kind === 'create' ? t('Plan') : kind === 'import' ? t('Program') : kind === 'debrief' ? t('Workout debrief') : t('Suggestions')} · {fmtDate(new Date(entry.at).toISOString().slice(0, 10))}</div>
+      <h2 className="pcard-h">{kind === 'create' || kind === 'import' ? (b?.name || t('Coach plan')) : kind === 'debrief' ? (entry.workout?.name || t('Workout')) : tn('{0} suggestion', '{0} suggestions', entry.decisions?.length || 0)}</h2>
       {!!entry.summary && <p className="pcard-sum">{entry.summary}</p>}
       {entry.dismissed && <p className="pcard-sum" style={{ color: 'var(--red)' }}>{t('You declined this.')}</p>}
       {!!entry.evidence?.sessions && <p className="pcard-sum" style={{ fontSize: 13 }}>
@@ -710,6 +798,13 @@ function ProposalDetail({ entry, S }) {
       {r && <RoutineBlock r={r} unit={S.unit} speedUnit={speedUnitOf(S)} />}
       <p className="pcard-sum" style={{ fontSize: 13 }}>{entry.scheduled ? t('Your week was set to this schedule.') : t('Imported without changing your week.')}</p>
     </>}
+    {kind === 'import' && b && <>
+      {b.routines.length > 1 && <div className="pcard-tabs" style={{ paddingInline: 0 }}>
+        {b.routines.map((x, i) => <button key={x.id || i} className={'pcard-tab' + (i === tab ? ' on' : '')} onClick={() => setTab(i)}><Icon name={glyphOf(x.emoji)} />{x.name}</button>)}
+      </div>}
+      {r && <RoutineBlock r={r} unit={S.unit} speedUnit={speedUnitOf(S)} />}
+      {!entry.dismissed && <p className="pcard-sum" style={{ fontSize: 13 }}>{t('Saved to your library. Your week was not changed.')}</p>}
+    </>}
     {kind === 'create' && !b && <p className="pcard-sum">{t('This plan was imported before the app kept proposals; only its summary is left.')}</p>}
 
     {kind === 'debrief' && <DebriefBody p={entry} S={S} />}
@@ -721,7 +816,7 @@ function ProposalDetail({ entry, S }) {
 /** Every proposal ever made, newest first. Nothing the Coach said is gone after a decision. */
 function HistorySheet({ S, close, openSheet }) {
   const log = [...(S.coach?.log || [])].reverse()
-  const icon = { create: ['clipboard', 'var(--indigo)'], review: ['sparkles', 'var(--acc)'], debrief: ['checkCircle', 'var(--green)'], revert: ['reset', 'var(--blue)'] }
+  const icon = { create: ['clipboard', 'var(--indigo)'], import: ['download', 'var(--teal)'], review: ['sparkles', 'var(--acc)'], debrief: ['checkCircle', 'var(--green)'], revert: ['reset', 'var(--blue)'] }
   return <div className="chat-menu">
     <h3>{t('Everything the Coach proposed')}</h3>
     {!log.length && <div className="chat-empty">{t('Nothing yet. Every plan, suggestion and debrief will be kept here, whether you said yes or no.')}</div>}
@@ -731,11 +826,12 @@ function HistorySheet({ S, close, openSheet }) {
         const n = (e.decisions || []).length
         const acc = (e.decisions || []).filter(d => d.status === 'accepted').length
         const title = e.kind === 'create' ? (e.bundle?.name || t('Coach plan')) + (e.iteration > 1 ? ` · ${t('Revision {0}', e.iteration)}` : '')
+          : e.kind === 'import' ? (e.bundle?.name || t('Imported program'))
           : e.kind === 'debrief' ? t('Debrief: {0}', e.workout?.name || t('Workout')) + (e.score != null ? ` · ${e.score}/10` : '')
             : e.kind === 'revert' ? t('Reverted the last Coach changes.')
               : tn('{0} suggestion', '{0} suggestions', n)
         const sub = fmtDate(new Date(e.at).toISOString().slice(0, 10)) + ' · ' + (e.kind === 'debrief' ? String(e.summary || '').slice(0, 60)
-          : e.dismissed ? t('Declined') : e.kind === 'create' ? t('Imported') : e.kind === 'revert' ? '' : t('{0} accepted · {1} declined', acc, n - acc))
+          : e.dismissed ? t('Declined') : e.kind === 'create' ? t('Imported') : e.kind === 'import' ? t('Saved') : e.kind === 'revert' ? '' : t('{0} accepted · {1} declined', acc, n - acc))
         return <Row key={e.id} icon={ic} iconTint={tint} title={title} subtitle={sub} accessory="chevron"
           onClick={() => { close(); openSheet(() => <ProposalDetail entry={e} S={S} />) }} />
       })}

@@ -98,7 +98,7 @@ there is nothing to re-read. Sending another import replaces the proposal, like 
 | Field | Rule |
 | --- | --- |
 | `programName` → `bundle.name` | Required, cut to 60. |
-| `description` → `bundle.summary` | Cut to 2000. |
+| `description` → `bundle.summary` | Cut to 1200, like a plan's summary. |
 | `routines` | 1 to 14 (`MAX_IMPORT_ROUTINES`); an id used twice is an error. No `week`. |
 | `routines[].name` | Required, cut to 40. |
 | `routines[].description` → `routines[].note` | Cut to 1000 (`ROUTINE_NOTE_MAX`). |

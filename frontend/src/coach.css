@@ -196,6 +196,7 @@
 .attach:active{transform:scale(.92)}
 .attach:disabled{opacity:.3}
 .attach-chip{max-width:100%;padding-right:6px}
+.attach-mode{margin:0 0 8px}
 .attach-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
 .attach-x{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;color:var(--label-3);font-size:12px}
 .msg-files{margin-top:6px;display:grid;gap:3px;font-size:13px;opacity:.85}

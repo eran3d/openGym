@@ -53,7 +53,9 @@ export const ATTACHMENT_ERRORS = {
   get count() { return t('That’s more files than the Coach takes at once.') },
   get size() { return t('That file is too big for the Coach.') },
   get total() { return t('Together these files are too big for the Coach.') },
-  get pages() { return t('That PDF has more pages than the Coach reads.') }
+  get pages() { return t('That PDF has more pages than the Coach reads.') },
+  // An import with no file and nothing typed (api/coach/jobs.js).
+  get missing() { return t('Attach the program, or describe it in your message.') }
 }
 
 /** The line shown for a refusal, with the limit that was crossed where there is one. */

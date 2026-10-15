@@ -22,6 +22,7 @@ import { convertWeight } from './units.js'
 import { fmtSpeed, speedUnitOf } from './speed.js'
 import { MUSCLES, inMuscleOrder } from './muscles.js'
 import { addFolder, cleanFolderName, folderIdOf, folderLabel, foldersOf } from './routine-folders.js'
+import { cleanRoutineNote } from './routines.js'
 
 const PLAN_FMT = 1
 const WEEK_DAYS = [1, 2, 3, 4, 5, 6, 0]   // every getDay() index; only the reader's own
@@ -199,6 +200,7 @@ export function buildPlanBundle(S, name) {
     ...(r.prog ? { prog: r.prog } : {}),
     ...(r.excludeFromProgression === true ? { excludeFromProgression: true } : {}),
     ...(folderIdOf(S, r) ? { folder: r.folder } : {}),
+    ...(cleanRoutineNote(r.note) ? { note: cleanRoutineNote(r.note) } : {}),
     ex: (r.ex || []).map(cleanEx)
   }))
   // The folders those routines are in (lib/routine-folders.js), so the friend's Plan groups them
@@ -324,6 +326,8 @@ export function mergePlan(s, bundle, { schedule } = {}) {
       ...(r.prog ? { prog: r.prog } : {}),
       ...(r.excludeFromProgression === true ? { excludeFromProgression: true } : {}),
       ...(r.folder != null && folderMap[String(r.folder)] ? { folder: folderMap[String(r.folder)] } : {}),
+      // The routine's description (an imported program's, docs/dev/coach-import.md).
+      ...(cleanRoutineNote(r.note) ? { note: cleanRoutineNote(r.note) } : {}),
       ex: (r.ex || []).map(e => ({ ...e, id: exIdMap[e.id] || canonicalExId(e.id) }))
     })
   })
@@ -337,7 +341,8 @@ export function mergePlan(s, bundle, { schedule } = {}) {
       if (ids.length) s.week[d] = ids
     })
   }
-  return { routines: source.routines.length }
+  // `folders` maps each of the bundle's folder ids to the folder its routines went into here.
+  return { routines: source.routines.length, folders: folderMap }
 }
 
 /* ------------------------------- printable PDF ------------------------------- */

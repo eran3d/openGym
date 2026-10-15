@@ -17,6 +17,7 @@ import { modeOf, isBw, isPerSide, cleanupSg } from './history.js'
 import { uid, todayISO, DAYN } from './format.js'
 import { mergePlan } from './plan-share.js'
 import { deleteRoutine } from './routines.js'
+import { cleanFolderName } from './routine-folders.js'
 import { POLICIES } from './progression.js'
 import { t, tn } from './i18n.js'
 
@@ -314,6 +315,7 @@ export function lightBundle(b) {
     name: b.name || '', summary: b.summary || '', week: { ...(b.week || {}) },
     routines: (b.routines || []).map(r => ({
       id: r.id, name: r.name, emoji: r.emoji || '', why: r.why || '',
+      ...(r.note ? { note: String(r.note).slice(0, 300) } : {}),
       ex: (r.ex || []).map(e => ({
         id: e.id, sets: e.sets, mode: e.mode || 'reps',
         ...(e.reps != null ? { reps: e.reps } : {}), ...(e.sec != null ? { sec: e.sec } : {}),
@@ -423,6 +425,43 @@ export function applyCreatedPlan(s, proposal, { schedule } = {}) {
     bundle: lightBundle(bundle), scheduled: !!schedule
   })
   return res
+}
+
+/* ============================ applying an imported program ============================ */
+
+/**
+ * Save an imported program (docs/dev/coach-import.md): its routines go into one folder named
+ * after the program, as written, and nothing is scheduled. The same path as importing a plan
+ * file, so the same rules: routines arrive as new ones with fresh ids, a custom exercise is
+ * reused by name and body part, a folder is matched by name or added, and at FOLDER_MAX folders
+ * the routines land outside any folder. `week` and `dayPlan` are never touched.
+ *
+ * Pure over the draft and the proposal (the clock and uid() aside), so a client porting it can
+ * replay it from a vector. Returns { routines, folder, logId }; `folder` is null when no folder
+ * could be added.
+ */
+export function applyImport(s, proposal) {
+  validateProposal(proposal)
+  pushSnapshot(s, proposal.id, t('Before the Coach’s import'))
+  const bundle = proposal.bundle
+  const FOLDER = 'import'
+  const name = cleanFolderName(bundle.name) || t('Imported program')
+  // The descriptions and the exercise notes are the program, so they stay; the Coach's `why`
+  // texts (none in an import, but a bundle is a bundle) and any link do not.
+  const stripped = {
+    name: bundle.name || '',
+    routines: bundle.routines.map(r => ({ ...r, why: undefined, folder: FOLDER, ex: r.ex.map(e => ({ ...e, why: undefined, name: undefined })) })),
+    customEx: (bundle.customEx || []).map(c => { const { url, media, ...rest } = c || {}; return rest }),
+    folders: [{ id: FOLDER, name }]
+  }
+  const res = mergePlan(s, stripped, { schedule: false })
+  const folder = res.folders?.[FOLDER] || null
+  const logId = appendLog(s, {
+    kind: 'import', at: Date.now(), proposalId: proposal.id,
+    summary: proposal.summary || bundle.summary || '', routines: res.routines,
+    folder, bundle: lightBundle(bundle)
+  })
+  return { routines: res.routines, folder, logId }
 }
 
 /* ============================ applying a change-set ============================ */
@@ -588,13 +627,13 @@ export function applyChangeSet(s, proposal, acceptedIds) {
 /** Turned down whole, or expired: recorded so a later review knows not to re-propose it. */
 export function recordDismissal(s, proposal) {
   const logId = appendLog(s, {
-    kind: proposal.kind === 'create' ? 'create' : 'review', at: Date.now(), proposalId: proposal.id,
+    kind: proposal.kind === 'create' || proposal.kind === 'import' ? proposal.kind : 'review', at: Date.now(), proposalId: proposal.id,
     summary: proposal.summary || '', dismissed: true,
     evidence: proposal.evidence || null, notes: proposal.notes || [],
     ...(proposal.bundle ? { bundle: lightBundle(proposal.bundle), iteration: proposal.iteration || 1 } : {}),
     decisions: (proposal.changes || []).map(c => decisionOf(c, 'rejected'))
   })
-  if (proposal.kind !== 'create') coachOf(s).lastReview = { at: Date.now() }
+  if (proposal.kind !== 'create' && proposal.kind !== 'import') coachOf(s).lastReview = { at: Date.now() }
   return logId
 }
 

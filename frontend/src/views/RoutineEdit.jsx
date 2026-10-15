@@ -16,7 +16,7 @@ import { glyphOf } from '../lib/glyphs.js'
 import { Button, Row, SelectRow, Switch } from '../components/ui.jsx'
 import SwipeRow from '../components/SwipeRow.jsx'
 import { workoutControls } from '../lib/workout-controls.js'
-import { copyRoutine, deleteRoutine, replaceSlotExercise } from '../lib/routines.js'
+import { copyRoutine, deleteRoutine, replaceSlotExercise, cleanRoutineNote, ROUTINE_NOTE_MAX } from '../lib/routines.js'
 import { planPrintHTML, printPlan } from '../lib/plan-share.js'
 import { markEntryUndone } from '../lib/sync-merge.js'
 import { MOBILE, printHtml } from '../lib/mobile.js'
@@ -471,6 +471,18 @@ export default function RoutineEdit() {
       </div>
       <button className="iconbtn" aria-label={t('Pick an icon')} onClick={() => glyphPicker(r.emoji, g => update(s => { s.routines.find(x => x.id === id).emoji = g }))}><Icon name={glyphOf(r.emoji)} /></button>
     </div>
+
+    {/* The routine's own description (docs/dev/coach-import.md): an imported program's session
+        arrives with one, and anyone can write one. */}
+    <textarea className="input" rows={r.note ? 3 : 1} maxLength={ROUTINE_NOTE_MAX} style={{ marginBottom: 16 }}
+      placeholder={t('Description (optional): what this session is for, how it changes over the weeks')}
+      defaultValue={r.note || ''}
+      onChange={e => update(s => {
+        const routine = s.routines.find(x => x.id === id)
+        const note = cleanRoutineNote(e.target.value)
+        if (note) routine.note = note
+        else delete routine.note
+      })} />
 
     <div className="sect-b" style={{ marginBottom: 16 }}>
       <SelectRow icon="chartLine" title={t('Progression')} sheetTitle={t('Progression')}
