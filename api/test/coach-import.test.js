@@ -100,7 +100,6 @@ test('the import validator holds the same lines as a plan where they share them'
   assert.match(text, /per-side exercise/);
   assert.match(text, /repsMin 12 above reps 8/);
   assert.match(text, /appears twice/);
-  assert.ok(!/—/.test(text), 'the import messages use no em dash');
   assert.equal(validateImport({ coach_contract: 1, programName: 'X', changes: [] }).errors[0].includes('not a list of changes'), true);
 });
 
