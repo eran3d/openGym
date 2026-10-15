@@ -3957,6 +3957,21 @@ components:
             maxTotalBytes: { type: integer }
             maxPages: { type: integer }
             supported: { type: boolean }
+            maxImageBytes:
+              oneOf: [{ type: integer }, { type: 'null' }]
+              description: The active provider's per-image limit as status reports it, or null when it reads no files.
+            ceilings:
+              type: object
+              description: |
+                The bounds `POST /api/admin/coach/config` clamps each limit to, so the admin card
+                offers the same range the server keeps. `bodyBytes` is the plan route's body limit.
+              properties:
+                maxCount: { type: integer }
+                minBytes: { type: integer }
+                maxBytes: { type: integer }
+                maxTotalBytes: { type: integer }
+                maxPages: { type: integer }
+                bodyBytes: { type: integer }
         community: { type: boolean }
         runtime:
           type: object

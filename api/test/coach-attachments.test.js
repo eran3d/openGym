@@ -311,7 +311,11 @@ test('the admin sets the limits within the ceilings, and the card says whether t
   let r = await call('POST /api/admin/coach/config', { attachments: { maxCount: 1, maxBytes: 1024 * 1024, maxTotalBytes: 2 * 1024 * 1024, maxPages: 10 } });
   assert.equal(r.status, 200);
   r = await call('GET /api/admin/coach');
-  assert.deepEqual(r.body.attachments, { maxCount: 1, maxBytes: 1024 * 1024, maxTotalBytes: 2 * 1024 * 1024, maxPages: 10, supported: true });
+  assert.deepEqual(r.body.attachments, {
+    maxCount: 1, maxBytes: 1024 * 1024, maxTotalBytes: 2 * 1024 * 1024, maxPages: 10, supported: true, maxImageBytes: 1024 * 1024,
+    // The card reads the bounds from here instead of keeping its own copy of them.
+    ceilings: { maxCount: att.MAX_COUNT_CEILING, minBytes: att.MAX_BYTES_FLOOR, maxBytes: att.MAX_TOTAL_BYTES_CEILING, maxTotalBytes: att.MAX_TOTAL_BYTES_CEILING, maxPages: att.MAX_PAGES_CEILING, bodyBytes: att.PLAN_BODY_LIMIT }
+  });
   await call('POST /api/admin/coach/config', { attachments: { maxCount: 50, maxBytes: 1e12, maxPages: 5000 } });
   r = await call('GET /api/admin/coach');
   assert.equal(r.body.attachments.maxCount, att.MAX_COUNT_CEILING);

@@ -330,21 +330,29 @@ export default function AdminCoach() {
             <span className="v"><input className="num" type="number" min="1024" max="65536" defaultValue={d.maxOutputTokens} disabled={busy}
               onBlur={e => +e.target.value !== d.maxOutputTokens && patch({ maxOutputTokens: +e.target.value })} /></span></div>
 
-          {d.attachments && <>
-            <div className="adm-hint" style={{ marginTop: 10 }}>Files a person can attach to a plan request: a PDF or a photo of a plan they already have, read by the model itself. A message with files is one run against the caps above. 0 files switches attachments off. At most 15 MB per request: that is what the plan route's body (21 MB, nginx and API) carries once base64 has added its third. What the providers take: Anthropic 32 MB per request, 100 PDF pages, 7.5 MB per image (enforced here); OpenAI 50 MB per request; Gemini 100 MB of inline data. Bytes are no measure of cost: a provider reads every PDF page as text and as an image, so a small scan of many pages costs more than a large photo. The page limit is the one that bounds the bill. {d.attachments.supported ? '' : 'The provider in use cannot read files, so the chat shows no attach button.'}</div>
-            <div className="adm-kv"><span className="k">Files per message</span>
-              <span className="v"><input className="num" type="number" min="0" max="5" defaultValue={d.attachments.maxCount} disabled={busy}
-                onBlur={e => +e.target.value !== d.attachments.maxCount && patch({ attachments: { maxCount: +e.target.value } })} /></span></div>
-            <div className="adm-kv"><span className="k">MB per file</span>
-              <span className="v"><input className="num" type="number" min="0.1" max="15" step="0.5" defaultValue={+(d.attachments.maxBytes / 1048576).toFixed(1)} disabled={busy}
-                onBlur={e => Math.round(+e.target.value * 1048576) !== d.attachments.maxBytes && patch({ attachments: { maxBytes: Math.round(+e.target.value * 1048576) } })} /></span></div>
-            <div className="adm-kv"><span className="k">MB per request</span>
-              <span className="v"><input className="num" type="number" min="0.1" max="15" step="0.5" defaultValue={+(d.attachments.maxTotalBytes / 1048576).toFixed(1)} disabled={busy}
-                onBlur={e => Math.round(+e.target.value * 1048576) !== d.attachments.maxTotalBytes && patch({ attachments: { maxTotalBytes: Math.round(+e.target.value * 1048576) } })} /></span></div>
-            <div className="adm-kv"><span className="k">Pages per PDF</span>
-              <span className="v"><input className="num" type="number" min="1" max="100" defaultValue={d.attachments.maxPages} disabled={busy}
-                onBlur={e => +e.target.value !== d.attachments.maxPages && patch({ attachments: { maxPages: +e.target.value } })} /></span></div>
-          </>}
+          {d.attachments && (() => {
+            // The range the server clamps to, as it reports it: the inputs cannot offer more (or
+            // less) than the config route will keep.
+            const a = d.attachments
+            const c = a.ceilings
+            if (!c) return null
+            const mb = b => +(b / 1048576).toFixed(1)
+            return <>
+              <div className="adm-hint" style={{ marginTop: 10 }}>Files a person can attach to a plan request: a PDF or a photo of a plan they already have, read by the model itself. A message with files is one run against the caps above. 0 files switches attachments off. At most {mb(c.maxTotalBytes)} MB per request and {c.maxPages} pages per PDF: that is what the plan route's body ({mb(c.bodyBytes)} MB, in nginx and the API) carries once base64 has added its third. What the providers take: Anthropic 32 MB per request, 100 PDF pages, 10 MB of base64 per image; OpenAI 50 MB per request; Gemini 100 MB of inline data.{a.maxImageBytes && a.maxImageBytes < a.maxBytes ? ` The provider in use takes images up to ${mb(a.maxImageBytes)} MB, and the app holds them to that.` : ''} Bytes are no measure of cost: a provider reads every PDF page as text and as an image, so a small scan of many pages costs more than a large photo. The page limit is the one that bounds the bill. {a.supported ? '' : 'The provider in use cannot read files, so the chat shows no attach button.'}</div>
+              <div className="adm-kv"><span className="k">Files per message</span>
+                <span className="v"><input className="num" type="number" min="0" max={c.maxCount} defaultValue={a.maxCount} disabled={busy} aria-label="Files per message"
+                  onBlur={e => +e.target.value !== a.maxCount && patch({ attachments: { maxCount: +e.target.value } })} /></span></div>
+              <div className="adm-kv"><span className="k">MB per file</span>
+                <span className="v"><input className="num" type="number" min={mb(c.minBytes)} max={mb(c.maxBytes)} step="0.5" defaultValue={mb(a.maxBytes)} disabled={busy} aria-label="MB per file"
+                  onBlur={e => Math.round(+e.target.value * 1048576) !== a.maxBytes && patch({ attachments: { maxBytes: Math.round(+e.target.value * 1048576) } })} /></span></div>
+              <div className="adm-kv"><span className="k">MB per request</span>
+                <span className="v"><input className="num" type="number" min={mb(c.minBytes)} max={mb(c.maxTotalBytes)} step="0.5" defaultValue={mb(a.maxTotalBytes)} disabled={busy} aria-label="MB per request"
+                  onBlur={e => Math.round(+e.target.value * 1048576) !== a.maxTotalBytes && patch({ attachments: { maxTotalBytes: Math.round(+e.target.value * 1048576) } })} /></span></div>
+              <div className="adm-kv"><span className="k">Pages per PDF</span>
+                <span className="v"><input className="num" type="number" min="1" max={c.maxPages} defaultValue={a.maxPages} disabled={busy} aria-label="Pages per PDF"
+                  onBlur={e => +e.target.value !== a.maxPages && patch({ attachments: { maxPages: +e.target.value } })} /></span></div>
+            </>
+          })()}
 
           <div className="adm-group-t" style={{ marginTop: 14 }}>Compare with others</div>
           <div className="row between" style={{ gap: 12, alignItems: 'flex-start' }}>

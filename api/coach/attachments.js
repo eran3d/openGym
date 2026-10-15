@@ -35,6 +35,17 @@ export const ATTACHMENT_DEFAULTS = Object.freeze({
 });
 const NAME_MAX = 120;
 
+/** The bounds the admin's limits are clamped to, for the admin card to offer the same range
+ *  the server enforces rather than its own copy of the numbers. */
+export const ATTACHMENT_CEILINGS = Object.freeze({
+  maxCount: MAX_COUNT_CEILING,
+  minBytes: MAX_BYTES_FLOOR,
+  maxBytes: MAX_TOTAL_BYTES_CEILING,
+  maxTotalBytes: MAX_TOTAL_BYTES_CEILING,
+  maxPages: MAX_PAGES_CEILING,
+  bodyBytes: PLAN_BODY_LIMIT
+});
+
 /** The admin's limits, clamped to what the transport can carry. */
 export function limitsOf(cfg) {
   const a = (cfg && cfg.attachments && typeof cfg.attachments === 'object') ? cfg.attachments : {};

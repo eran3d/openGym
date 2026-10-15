@@ -5118,6 +5118,46 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="p-desc"></span>
   </div>
   <div class="prow">
+    <span class="p-name">attachments.maxImageBytes</span>
+    <span class="p-type">integer | null</span>
+    <span class="p-desc">The active provider's per-image limit as status reports it, or null when it reads no files.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.ceilings</span>
+    <span class="p-type">object</span>
+    <span class="p-desc">The bounds <code>POST /api/admin/coach/config</code> clamps each limit to, so the admin card offers the same range the server keeps. <code>bodyBytes</code> is the plan route's body limit.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.ceilings.maxCount</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.ceilings.minBytes</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.ceilings.maxBytes</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.ceilings.maxTotalBytes</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.ceilings.maxPages</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.ceilings.bodyBytes</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
     <span class="p-name">community</span>
     <span class="p-type">boolean</span>
     <span class="p-desc"></span>

@@ -11,7 +11,7 @@ import { adapterFor } from './adapters/index.js';
 import { canDropPrivileges } from './adapters/spawn.js';
 import { DATA_CATEGORIES } from './core/payload.js';
 import { validateBaseUrl, validateHeaders, baseUrlFor } from './core/providers.js';
-import { limitsOf as attachmentLimits, MAX_BYTES_FLOOR, MAX_TOTAL_BYTES_CEILING, MAX_COUNT_CEILING, MAX_PAGES_CEILING, PLAN_BODY_LIMIT } from './attachments.js';
+import { limitsOf as attachmentLimits, MAX_BYTES_FLOOR, MAX_TOTAL_BYTES_CEILING, MAX_COUNT_CEILING, MAX_PAGES_CEILING, PLAN_BODY_LIMIT, ATTACHMENT_CEILINGS } from './attachments.js';
 
 // Job failures the user sees, in the app's own voice. The raw provider detail never reaches
 // them — it goes to the admin card, which is where someone can act on it (FR-47).
@@ -184,8 +184,15 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
         caps: cfg.caps,
         maxMessageLen: cfg.maxMessageLen,
         maxOutputTokens: cfg.maxOutputTokens,
-        // The admin's limits, and whether the active provider can read files at all.
-        attachments: { ...attachmentLimits(cfg), supported: !!jobs.attachmentsFor(cfg) },
+        // The admin's limits, whether the active provider can read files at all, the bounds the
+        // config route clamps to (so the card's inputs cannot drift from them), and the active
+        // provider's own per-image ceiling where it has one.
+        attachments: {
+          ...attachmentLimits(cfg),
+          supported: !!jobs.attachmentsFor(cfg),
+          maxImageBytes: jobs.attachmentsFor(cfg)?.maxImageBytes ?? null,
+          ceilings: ATTACHMENT_CEILINGS
+        },
         community: !!cfg.community,
         runtime: { ok: !!check.ok, version: check.version || null, error: check.error || null, needsKey: !!check.needsKey },
         authMode: cfg.authMode,
