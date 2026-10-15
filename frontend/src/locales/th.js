@@ -2265,4 +2265,9 @@ export default {
   'Up to {0} MB per file.': 'ไม่เกิน {0} MB ต่อไฟล์',
   'Up to {0} MB in all.': 'รวมไม่เกิน {0} MB',
   'Up to {0} at a time.': 'ไม่เกิน {0} ไฟล์ต่อครั้ง',
+  'The attached files were removed: the Coach can’t read files on this instance any more.': 'นำไฟล์ที่แนบออกแล้ว: โค้ชบนอินสแตนซ์นี้อ่านไฟล์ไม่ได้อีกต่อไป',
+  'Replace the open suggestions?': 'แทนที่คำแนะนำที่รออยู่หรือไม่',
+  'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'แผนที่สร้างจากไฟล์นี้จะเข้ามาแทนคำแนะนำที่รอคุณอยู่ คำแนะนำเหล่านั้นจะไม่ถูกนำไปใช้',
+  'That PDF has more pages than the Coach reads.': 'PDF นี้มีหน้ามากกว่าที่โค้ชอ่าน',
+  'Up to {0} pages.': 'ไม่เกิน {0} หน้า',
 }

@@ -2258,4 +2258,9 @@ export default {
   'Up to {0} MB per file.': 'До {0} МБ на файл.',
   'Up to {0} MB in all.': 'До {0} МБ всего.',
   'Up to {0} at a time.': 'До {0} за раз.',
+  'The attached files were removed: the Coach can’t read files on this instance any more.': 'Прикреплённые файлы удалены: Тренер больше не может читать файлы на этом сервере.',
+  'Replace the open suggestions?': 'Заменить ожидающие предложения?',
+  'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'План из этого файла займёт место предложений, которые вас ждут. Они не будут применены.',
+  'That PDF has more pages than the Coach reads.': 'В этом PDF больше страниц, чем читает Тренер.',
+  'Up to {0} pages.': 'До {0} страниц.',
 }

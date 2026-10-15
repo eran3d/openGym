@@ -2254,4 +2254,9 @@ export default {
   'Up to {0} MB per file.': 'Dosya başına en fazla {0} MB.',
   'Up to {0} MB in all.': 'Toplamda en fazla {0} MB.',
   'Up to {0} at a time.': 'Bir seferde en fazla {0}.',
+  'The attached files were removed: the Coach can’t read files on this instance any more.': 'Ekli dosyalar kaldırıldı: Koç bu sunucuda artık dosya okuyamıyor.',
+  'Replace the open suggestions?': 'Bekleyen öneriler değiştirilsin mi?',
+  'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'Bu dosyadan oluşturulan plan, seni bekleyen önerilerin yerini alır. Öneriler uygulanmaz.',
+  'That PDF has more pages than the Coach reads.': 'Bu PDF, Koç’un okuduğundan fazla sayfa içeriyor.',
+  'Up to {0} pages.': 'En fazla {0} sayfa.',
 }

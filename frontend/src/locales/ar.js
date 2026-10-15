@@ -2309,4 +2309,9 @@ export default {
   'Up to {0} MB per file.': 'حتى {0} ميغابايت لكل ملف.',
   'Up to {0} MB in all.': 'حتى {0} ميغابايت إجمالًا.',
   'Up to {0} at a time.': 'حتى {0} في المرة الواحدة.',
+  'The attached files were removed: the Coach can’t read files on this instance any more.': 'أُزيلت الملفات المرفقة: لم يعد بإمكان المدرب قراءة الملفات على هذا المثيل.',
+  'Replace the open suggestions?': 'استبدال الاقتراحات المعلّقة؟',
+  'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'الخطة المبنية من هذا الملف تحلّ محلّ الاقتراحات التي تنتظرك. لن تُطبَّق.',
+  'That PDF has more pages than the Coach reads.': 'يحتوي ملف PDF هذا على صفحات أكثر مما يقرأه المدرب.',
+  'Up to {0} pages.': 'حتى {0} صفحة.',
 }

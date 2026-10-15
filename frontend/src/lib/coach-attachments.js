@@ -50,7 +50,8 @@ export const ATTACHMENT_ERRORS = {
   get type() { return t('The Coach reads PDFs and JPEG or PNG images.') },
   get count() { return t('That’s more files than the Coach takes at once.') },
   get size() { return t('That file is too big for the Coach.') },
-  get total() { return t('Together these files are too big for the Coach.') }
+  get total() { return t('Together these files are too big for the Coach.') },
+  get pages() { return t('That PDF has more pages than the Coach reads.') }
 }
 
 /** The line shown for a refusal, with the limit that was crossed where there is one. */
@@ -60,5 +61,6 @@ export function attachmentErrorText(reason, cap) {
   if (reason === 'size') return base + ' ' + t('Up to {0} MB per file.', fmtMB(cap.maxBytes / 1048576))
   if (reason === 'total') return base + ' ' + t('Up to {0} MB in all.', fmtMB(cap.maxTotalBytes / 1048576))
   if (reason === 'count') return base + ' ' + t('Up to {0} at a time.', cap.maxCount)
+  if (reason === 'pages' && cap.maxPages) return base + ' ' + t('Up to {0} pages.', cap.maxPages)
   return base
 }

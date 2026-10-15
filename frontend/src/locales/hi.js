@@ -2254,4 +2254,9 @@ export default {
   'Up to {0} MB per file.': 'हर फ़ाइल अधिकतम {0} MB।',
   'Up to {0} MB in all.': 'कुल मिलाकर अधिकतम {0} MB।',
   'Up to {0} at a time.': 'एक बार में अधिकतम {0}।',
+  'The attached files were removed: the Coach can’t read files on this instance any more.': 'जोड़ी गई फ़ाइलें हटा दी गईं: इस इंस्टेंस पर कोच अब फ़ाइलें नहीं पढ़ सकता।',
+  'Replace the open suggestions?': 'बाकी सुझावों को बदलें?',
+  'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'इस फ़ाइल से बना प्लान आपके इंतज़ार में रखे सुझावों की जगह ले लेगा। वे लागू नहीं होंगे।',
+  'That PDF has more pages than the Coach reads.': 'इस PDF में कोच जितने पेज पढ़ता है उससे ज़्यादा पेज हैं।',
+  'Up to {0} pages.': 'अधिकतम {0} पेज।',
 }

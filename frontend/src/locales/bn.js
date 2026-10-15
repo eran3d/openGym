@@ -2333,4 +2333,9 @@ export default {
   'Up to {0} MB per file.': 'প্রতি ফাইলে সর্বোচ্চ {0} MB।',
   'Up to {0} MB in all.': 'সব মিলিয়ে সর্বোচ্চ {0} MB।',
   'Up to {0} at a time.': 'একবারে সর্বোচ্চ {0}টি।',
+  'The attached files were removed: the Coach can’t read files on this instance any more.': 'সংযুক্ত ফাইলগুলো সরানো হয়েছে: এই সার্ভারে কোচ আর ফাইল পড়তে পারে না।',
+  'Replace the open suggestions?': 'অপেক্ষমাণ পরামর্শগুলো বদলাবেন?',
+  'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'এই ফাইল থেকে তৈরি প্ল্যান আপনার জন্য অপেক্ষমাণ পরামর্শগুলোর জায়গা নেবে। সেগুলো প্রয়োগ হবে না।',
+  'That PDF has more pages than the Coach reads.': 'এই PDF-এ কোচ যত পৃষ্ঠা পড়ে তার চেয়ে বেশি পৃষ্ঠা আছে।',
+  'Up to {0} pages.': 'সর্বোচ্চ {0} পৃষ্ঠা।',
 }

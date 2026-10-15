@@ -2257,4 +2257,9 @@ export default {
   'Up to {0} MB per file.': 'Legfeljebb {0} MB fájlonként.',
   'Up to {0} MB in all.': 'Összesen legfeljebb {0} MB.',
   'Up to {0} at a time.': 'Egyszerre legfeljebb {0}.',
+  'The attached files were removed: the Coach can’t read files on this instance any more.': 'A csatolt fájlok eltávolítva: az Edző ezen a példányon már nem tud fájlokat olvasni.',
+  'Replace the open suggestions?': 'Lecseréled a függő javaslatokat?',
+  'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'Az ebből a fájlból készült terv a rád váró javaslatok helyére kerül. Azok nem lesznek alkalmazva.',
+  'That PDF has more pages than the Coach reads.': 'Ennek a PDF-nek több oldala van, mint amennyit az Edző elolvas.',
+  'Up to {0} pages.': 'Legfeljebb {0} oldal.',
 }

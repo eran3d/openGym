@@ -2247,4 +2247,9 @@ export default {
   'Up to {0} MB per file.': '每個檔案最多 {0} MB。',
   'Up to {0} MB in all.': '總共最多 {0} MB。',
   'Up to {0} at a time.': '一次最多 {0} 個。',
+  'The attached files were removed: the Coach can’t read files on this instance any more.': '附件已移除：此伺服器上的 AI 教練已無法讀取檔案。',
+  'Replace the open suggestions?': '要取代待處理的建議嗎？',
+  'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': '根據這個檔案產生的計畫會取代正在等你的建議。這些建議不會被套用。',
+  'That PDF has more pages than the Coach reads.': '這份 PDF 的頁數超過 AI 教練能讀取的範圍。',
+  'Up to {0} pages.': '最多 {0} 頁。',
 }

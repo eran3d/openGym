@@ -40,5 +40,6 @@ describe('attachmentErrorText', () => {
   it('adds the limit to the line where there is one', () => {
     expect(attachmentErrorText('count', CAP)).toMatch(/2/)
     expect(attachmentErrorText('nonsense', CAP)).toBe(attachmentErrorText('malformed', CAP))
+    expect(attachmentErrorText('pages', { ...CAP, maxPages: 30 })).toMatch(/pages.*30/)
   })
 })

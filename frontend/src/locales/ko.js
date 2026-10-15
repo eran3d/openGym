@@ -2254,4 +2254,9 @@ export default {
   'Up to {0} MB per file.': '파일당 최대 {0}MB.',
   'Up to {0} MB in all.': '합계 최대 {0}MB.',
   'Up to {0} at a time.': '한 번에 최대 {0}개.',
+  'The attached files were removed: the Coach can’t read files on this instance any more.': '첨부한 파일이 제거되었습니다: 이 인스턴스의 코치는 더 이상 파일을 읽을 수 없습니다.',
+  'Replace the open suggestions?': '대기 중인 제안을 바꿀까요?',
+  'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': '이 파일로 만든 플랜이 기다리고 있던 제안을 대신합니다. 제안은 적용되지 않습니다.',
+  'That PDF has more pages than the Coach reads.': '이 PDF는 코치가 읽는 쪽수보다 깁니다.',
+  'Up to {0} pages.': '최대 {0}쪽.',
 }

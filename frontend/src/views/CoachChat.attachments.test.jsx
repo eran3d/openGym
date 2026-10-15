@@ -4,6 +4,7 @@ import { parseHTML } from 'linkedom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CoachChat from './CoachChat.jsx'
 import { refinePlan } from '../lib/coach-api.js'
+import { confirmSheet } from '../sheets.jsx'
 import { CONSENT_VERSION } from '../lib/coach.js'   // the consent a fixture grants is the current one, whatever its number
 
 // Attaching a file to a message (docs/dev/coach-attachments.md): the paperclip shows only when
@@ -146,5 +147,30 @@ describe('attachments in the Coach chat', () => {
     expect(mocks.toast).toHaveBeenCalledWith(expect.stringMatching(/too big/))
     await pick([new File([PDF], 'notes.txt', { type: 'text/plain' })])
     expect(mocks.toast).toHaveBeenLastCalledWith(expect.stringMatching(/PDFs/))
+  })
+
+  it('asks before a plan from a file takes the place of open review suggestions', async () => {
+    mocks.attachments = CAP
+    await mount({ id: 'r1', kind: 'review', summary: 'two changes', changes: [] })
+    await pick([new File([PDF], 'plan.pdf', { type: 'application/pdf' })])
+    await click(container.querySelector('.send'))
+    expect(refinePlan).not.toHaveBeenCalled()
+    expect(confirmSheet).toHaveBeenCalledTimes(1)
+    const opts = confirmSheet.mock.calls[0][0]
+    expect(opts.title).toMatch(/Replace the open suggestions/)
+    await act(async () => { await opts.onConfirm() })
+    expect(refinePlan).toHaveBeenCalledTimes(1)
+  })
+
+  it('drops picked files, and says so, when the server stops taking them', async () => {
+    mocks.attachments = CAP
+    await mount(null)
+    await pick([new File([PDF], 'plan.pdf', { type: 'application/pdf' })])
+    expect(container.querySelector('.attach-chip')).toBeTruthy()
+    mocks.attachments = null
+    await act(async () => { root.render(React.createElement(CoachChat)) })
+    expect(container.querySelector('.attach-chip')).toBeNull()
+    expect(container.querySelector('.attach')).toBeNull()
+    expect(mocks.toast).toHaveBeenCalledWith(expect.stringMatching(/removed/))
   })
 })

@@ -2254,4 +2254,9 @@ export default {
   'Up to {0} MB per file.': 'Hasta {0} MB por archivo.',
   'Up to {0} MB in all.': 'Hasta {0} MB en total.',
   'Up to {0} at a time.': 'Hasta {0} a la vez.',
+  'The attached files were removed: the Coach can’t read files on this instance any more.': 'Se quitaron los archivos adjuntos: el entrenador ya no puede leer archivos en esta instancia.',
+  'Replace the open suggestions?': '¿Reemplazar las sugerencias pendientes?',
+  'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': 'Un plan creado a partir de este archivo ocupa el lugar de las sugerencias que te esperan. No se aplican.',
+  'That PDF has more pages than the Coach reads.': 'Ese PDF tiene más páginas de las que lee el entrenador.',
+  'Up to {0} pages.': 'Hasta {0} páginas.',
 }

@@ -101,13 +101,22 @@ export default function CoachChat() {
 
   useEffect(() => { if (typeof endRef.current?.scrollIntoView === 'function') endRef.current.scrollIntoView({ block: 'end' }) }, [S.coach?.chat?.length, !!job, !!pending])
 
+  // Only a server that said it takes files gets the button: the demo and a phone with its own
+  // key report none, and a provider that cannot read them (Codex, a compatible endpoint) neither.
+  const canAttach = !!attachCap && !DEMO && !(MOBILE && coachMode === 'byok')
+  // An admin switching to a provider that cannot read files takes the paperclip away on the next
+  // poll. Files already picked go with it, and the person is told rather than finding them gone.
+  useEffect(() => {
+    if (!canAttach && files.length) {
+      setFiles([])
+      toast(t('The attached files were removed: the Coach can’t read files on this instance any more.'))
+    }
+  }, [canAttach, files.length])
+
   if (!ready) return null
   const coach = S.coach || emptyCoach()
   const community = !!config?.coach?.community && !DEMO && !(MOBILE && coachMode === 'byok')
 
-  // Only a server that said it takes files gets the button: the demo and a phone with its own
-  // key report none, and a provider that cannot read them (Codex, a compatible endpoint) neither.
-  const canAttach = !!attachCap && !DEMO && !(MOBILE && coachMode === 'byok')
   const pickFiles = async e => {
     const picked = [...(e.target.files || [])]
     e.target.value = ''
@@ -120,7 +129,20 @@ export default function CoachChat() {
     } catch { toast(attachmentErrorText('malformed')) }
   }
 
-  const send = async () => {
+  const send = () => {
+    // A file makes this a plan request, and a finished plan takes the place of whatever is
+    // waiting. Suggestions from a review are worth a question before they are pushed aside.
+    if (canAttach && files.length && pending && pending.kind !== 'create') {
+      return confirmSheet({
+        title: t('Replace the open suggestions?'),
+        message: t('A plan built from this file takes the place of the suggestions waiting for you. They are not applied.'),
+        confirmText: t('Replace'),
+        onConfirm: () => { doSend() }
+      })
+    }
+    return doSend()
+  }
+  const doSend = async () => {
     const withFiles = canAttach && files.length > 0
     // A file with nothing typed beside it still says what it is for.
     const msg = text.trim() || (withFiles ? t('Build my plan from the attached file.') : '')

@@ -2254,4 +2254,9 @@ export default {
   'Up to {0} MB per file.': '每个文件最多 {0} MB。',
   'Up to {0} MB in all.': '总共最多 {0} MB。',
   'Up to {0} at a time.': '一次最多 {0} 个。',
+  'The attached files were removed: the Coach can’t read files on this instance any more.': '附件已移除：此实例上的教练已无法读取文件。',
+  'Replace the open suggestions?': '替换待处理的建议？',
+  'A plan built from this file takes the place of the suggestions waiting for you. They are not applied.': '根据此文件生成的计划将取代正在等你的建议。这些建议不会被应用。',
+  'That PDF has more pages than the Coach reads.': '该 PDF 的页数超过了教练能读取的范围。',
+  'Up to {0} pages.': '最多 {0} 页。',
 }
