@@ -21,6 +21,7 @@ import { t, exerciseNameFor, exerciseNameClass, getLang, RTL_LANGS } from './i18
 import { convertWeight } from './units.js'
 import { fmtSpeed, speedUnitOf } from './speed.js'
 import { MUSCLES, inMuscleOrder } from './muscles.js'
+import { addFolder, cleanFolderName, folderIdOf, folderLabel, foldersOf } from './routine-folders.js'
 
 const PLAN_FMT = 1
 const WEEK_DAYS = [1, 2, 3, 4, 5, 6, 0]   // every getDay() index; only the reader's own
@@ -197,8 +198,13 @@ export function buildPlanBundle(S, name) {
     id: r.id, name: r.name, emoji: r.emoji,
     ...(r.prog ? { prog: r.prog } : {}),
     ...(r.excludeFromProgression === true ? { excludeFromProgression: true } : {}),
+    ...(folderIdOf(S, r) ? { folder: r.folder } : {}),
     ex: (r.ex || []).map(cleanEx)
   }))
+  // The folders those routines are in (lib/routine-folders.js), so the friend's Plan groups them
+  // the same way. An importer from before folders ignores both.
+  const inUse = new Set(routines.map(r => r.folder).filter(Boolean))
+  const folders = foldersOf(S).filter(f => inUse.has(f.id) && folderLabel(f)).map(f => ({ id: f.id, name: folderLabel(f) }))
   const usedIds = new Set(routines.flatMap(r => r.ex.map(e => e.id)))
   const customEx = (S.customEx || [])
     .filter(c => usedIds.has(c.id))
@@ -208,7 +214,7 @@ export function buildPlanBundle(S, name) {
   // written after are read the same way at the other end.
   const week = {}
   WEEK_DAYS.forEach(d => { if (S.week?.[d]?.length) week[d] = [].concat(S.week[d]) })
-  return { opengym_plan: PLAN_FMT, exported: todayISO(), name: name || '', unit, week, routines, customEx }
+  return { opengym_plan: PLAN_FMT, exported: todayISO(), name: name || '', unit, week, routines, customEx, ...(folders.length ? { folders } : {}) }
 }
 
 /**
@@ -254,9 +260,13 @@ export function parsePlan(raw, destinationUnit = 'kg') {
       return convertedExercise({ ...passthrough, ...(pyramid.length ? { pyramid } : {}), ...(pyramidRest.length ? { pyramidRest } : {}), ...(pyramidWeight.length ? { pyramidWeight } : {}), ...(warm ? { warmupSets: warm } : {}), ...(intens ? { intensifier: intens } : {}), ...(rest ? { restSec: rest } : {}), ...(warmRest ? { warmupRestSec: warmRest } : {}) }, sourceUnit || destination, destination)
     })
   }))
+  const folders = (Array.isArray(data.folders) ? data.folders : [])
+    .filter(f => f && (typeof f.id === 'string' || typeof f.id === 'number') && cleanFolderName(f.name))
+    .map(f => ({ id: String(f.id), name: cleanFolderName(f.name) }))
   return {
     name: (data.name || '').trim(),
     routines,
+    folders,
     week: data.week || {},
     customEx,
     dropped,
@@ -294,6 +304,15 @@ export function mergePlan(s, bundle, { schedule } = {}) {
     const clean = cleanCustom(c)
     s.customEx.push({ ...clean, id: nid, ...(clean.secondaries ? { sm: clean.secondaries } : {}), custom: true })
   })
+  // Folders: one with the same name (case and spacing aside) is reused, any other is added.
+  const folderMap = {}
+  ;(source.folders || []).forEach(f => {
+    const name = cleanFolderName(f?.name)
+    if (!name || f.id == null) return
+    const same = foldersOf(s).find(x => cleanFolderName(x.name).toLowerCase() === name.toLowerCase())
+    const into = same || addFolder(s, name)
+    if (into) folderMap[String(f.id)] = into.id
+  })
   const ridMap = {}
   source.routines.forEach(r => {
     const nid = uid()
@@ -304,6 +323,7 @@ export function mergePlan(s, bundle, { schedule } = {}) {
       emoji: r.emoji,
       ...(r.prog ? { prog: r.prog } : {}),
       ...(r.excludeFromProgression === true ? { excludeFromProgression: true } : {}),
+      ...(r.folder != null && folderMap[String(r.folder)] ? { folder: folderMap[String(r.folder)] } : {}),
       ex: (r.ex || []).map(e => ({ ...e, id: exIdMap[e.id] || canonicalExId(e.id) }))
     })
   })

@@ -31,6 +31,10 @@
 //      device changed it loses to that change, one that sends no record of edits at all (it never
 //      read a copy from an updated app) still wins as before, and the older app shows its own
 //      value until it next reads the profile;
+//   2b. for every writer: the routine folders merged with the stored ones, entry by entry, with the
+//      removals on record applied (mergeStoredFolders), and the names of the same reset joined
+//      (keepResetIds): an app from before folders that stamps its own changes drops both from its
+//      merge (docs/dev/ROUTINE_FOLDERS.md);
 //   3. for every writer: an entry the document holds while a removal on record says it was
 //      deleted after its last edit is kept, and marked as added back. An updated app never sends
 //      such a document, so this is an older app's merge (or its Coach undo, or a backup it
@@ -47,11 +51,13 @@ const workoutTime = w => Number(w?._ts) || Number(w?.end) || Number(w?.start) ||
 export const DEL_LISTS = {
   workouts: workoutKey, routines: x => x?.id, customEx: x => x?.id, bodyweight: e => e?.d,
   measurements: e => e?.d, gymCards: x => x?.id, equipProfiles: x => x?.id, favEx: x => x,
+  routineFolders: x => x?.id,
 };
 const DEL_TIME = {
   workouts: workoutTime, routines: x => Number(x?._ts) || 0, customEx: x => Number(x?._ts) || 0,
   bodyweight: e => Number(e?.t) || 0, measurements: e => Number(e?.t) || 0,
   gymCards: x => Number(x?._ts) || 0, equipProfiles: x => Number(x?._ts) || 0,
+  routineFolders: x => Number(x?._ts) || 0,
 };
 export const DELETED_MAX = 5000;
 const capStamps = m => {
@@ -63,6 +69,7 @@ const capStamps = m => {
 };
 const OWN_MERGE = new Set([
   '_ts', '_rev', '_wid', '_wids', '_unstamped', '_prior', 'active', 'unit', 'unitSet', 'resetAt', 'resetIds', 'deleted', 'edited', 'undone', 'routineOrder',
+  'routineFolderOrder', 'routineFolders',
   'workouts', 'routines', 'customEx', 'equipProfiles', 'gymCards', 'bodyweight', 'measurements', 'favEx',
   'exWeights', 'balanceOverrides', 'loadKind', 'plates', 'dbLoad', 'dumbbells', 'dayNotes',
 ]);
@@ -71,7 +78,7 @@ const PER_KEY = new Set(['week', 'dayPlan', 'exNotes', 'barWeights']);
 // key by the app, so never stamped here as a whole setting. dayNotes is a note per day off.
 export const STAMPED_MAPS = ['balanceOverrides', 'loadKind', 'plates', 'dbLoad', 'dumbbells', 'dayNotes'];
 const ENTRY_META = new Set(['id', '_ts', '_f', '_u']);
-const ENTRY_LISTS = ['routines', 'customEx', 'equipProfiles', 'gymCards', 'workouts'];
+const ENTRY_LISTS = ['routines', 'routineFolders', 'customEx', 'equipProfiles', 'gymCards', 'workouts'];
 
 // Whether removal record `v` replaces `cur`: the later stamp, and on a tie the add-back.
 const laterDel = (v, cur) => {
@@ -294,11 +301,13 @@ function stampUnstamped(cur, next, sent, now, own = null) {
       else if (!moved(k)) ed[k] = now;
     }
   }
-  // The order of the routines (sync-merge.js ORDER_KEY), the same way: a reorder is stamped, an
-  // older copy's order of routines another device reordered since is put back as stored.
-  if (Array.isArray(next.routines) && orderMoved(cur.routines, next.routines)) {
-    if (stale(ORDER_KEY)) next.routines = inOrderOf(cur.routines, next.routines);
-    else if (!moved(ORDER_KEY)) ed[ORDER_KEY] = now;
+  // The order of the routines and of their folders (sync-merge.js ORDERED), the same way: a
+  // reorder is stamped, an older copy's order of a list another device reordered since is put
+  // back as stored.
+  for (const [f, key] of Object.entries(ORDERED)) {
+    if (!Array.isArray(next[f]) || !orderMoved(cur[f], next[f])) continue;
+    if (stale(key)) next[f] = inOrderOf(cur[f], next[f]);
+    else if (!moved(key)) ed[key] = now;
   }
   if (Object.keys(ed).length) next.edited = ed;
   // Entries edited without stamps of their own: a routine, a custom exercise, a profile, a card,
@@ -333,6 +342,8 @@ function stampUnstamped(cur, next, sent, now, own = null) {
 }
 
 const ORDER_KEY = 'routineOrder';
+// The lists whose order the user sets, and the stamp of that order in `edited`.
+const ORDERED = { routines: ORDER_KEY, routineFolders: 'routineFolderOrder' };
 /** Whether two lists hold the routines both have in a different order (sync-merge.js orderMoved). */
 export function orderMoved(a, b) {
   const ida = list(a).map(r => r?.id).filter(id => id != null), idb = list(b).map(r => r?.id).filter(id => id != null);
@@ -378,6 +389,7 @@ const V139_DROPS = {
   customEx: new Set(['media', 'url']),
   equipProfiles: new Set(),
   gymCards: new Set(),
+  routineFolders: new Set(),
   workouts: new Set(['media', 'note', 'name', 'bw', 'prs', 'vol', 'routineIds']),
   'workouts.entries': new Set(['sg', 'note', 'notePin', 'noProg', 'topW']),
   'workouts.entries.sets': new Set(['w', 'r', 'sec', 'min', 'km', 'dist', 'speed', 'rir', 'rpe', 'planSec', 'note',
@@ -439,6 +451,83 @@ export function keepUnknown(cur, next) {
     for (const x of next[f]) if (isMap(x) && x.id != null && before.has(x.id)) keepKeys(before.get(x.id), x, f);
   }
   return next;
+}
+
+// Step 2b, for every writer: the routine folders (docs/dev/ROUTINE_FOLDERS.md) merged with the
+// stored ones, entry by entry. An app from before folders that stamps its own changes (v1.4.x)
+// passes keepUnknown by, and its merge after a 409 takes `routineFolders` whole from the newer
+// copy and drops `deleted.routineFolders`: its push set a rename back, lost a new folder, and
+// brought a deleted one back for good (keepHeld then took it for a re-add). So the server does the
+// app's merge of that list itself: the union by id (the writer's order when it reordered them,
+// the stored one otherwise, a folder only one side has next to its neighbour there), each folder field by field (`_f`, mergeEntry), then the removals on record.
+// For an updated app this changes nothing: it sent the merge of the same two copies.
+export function mergeEntry(a, b) {
+  const [n, o] = (Number(b?._ts) || 0) > (Number(a?._ts) || 0) ? [b, a] : [a, b];
+  const out = clone(n);
+  const fn = isMap(n._f) ? n._f : {}, fo = isMap(o._f) ? o._f : {};
+  const f = { ...fo };
+  for (const [k, v] of Object.entries(fn)) if (!((Number(f[k]) || 0) > (Number(v) || 0))) f[k] = v;
+  for (const k of new Set([...Object.keys(n), ...Object.keys(o), ...Object.keys(f)])) {
+    if (ENTRY_META.has(k)) continue;
+    if ((Number(fo[k]) || 0) > (Number(fn[k]) || 0)) { if (k in o) out[k] = clone(o[k]); else delete out[k]; }
+  }
+  if (Object.keys(f).length) out._f = f; else delete out._f;
+  delete out._u;
+  const ts = Math.max(Number(a?._ts) || 0, Number(b?._ts) || 0);
+  if (ts) out._ts = ts;
+  return out;
+}
+function mergeStoredFolders(cur, next) {
+  const mine = list(cur?.routineFolders).filter(x => isMap(x) && x.id != null);
+  const theirs = list(next.routineFolders).filter(x => isMap(x) && x.id != null);
+  if (!mine.length && !theirs.length) return;
+  // The writer's order only when it is a reorder of its own: the folders both lists hold stand in
+  // another order, and the record of edits (joined with the stored one, step 1, and stamped for a
+  // writer that does not stamp, step 2) holds a later order stamp than the stored copy. An older
+  // app's merge joins `edited` key by key, so it carries the stored stamp while its list is its
+  // own older one; that stamp is not later, and the stored order stays.
+  const key = ORDERED.routineFolders;
+  const stale = !(orderMoved(mine, theirs) && (Number(next.edited?.[key]) || 0) > (Number(cur?.edited?.[key]) || 0));
+  const [lead, rest] = stale ? [mine, theirs] : [theirs, mine];
+  const by = new Map(rest.map(x => [x.id, x]));
+  const leadIds = new Set(lead.map(x => x.id));
+  const out = neighbours(lead, rest).map(x => {
+    const other = leadIds.has(x.id) ? by.get(x.id) : null;
+    if (!other) return clone(x);
+    const a = stale ? other : x, b = stale ? x : other;   // the writer's version first, as on a tie
+    return mergeEntry(a, b);
+  });
+  const gone = isMap(next.deleted?.routineFolders) ? next.deleted.routineFolders : {};
+  next.routineFolders = out.filter(x => { const at = Number(gone[String(x.id)]) || 0; return !(at > 0 && at >= (Number(x._ts) || 0)); });
+}
+// The names of the same reset (equal `resetAt`) from the stored copy and the written one: a writer
+// keeps only the fields it knows of (sync-merge.js mergeResetIds), so the others come back here.
+const RESET_ID_MAX = 20000;
+function keepResetIds(cur, next) {
+  const at = Number(cur?.resetAt) || 0;
+  if (!at || at !== (Number(next.resetAt) || 0) || !isMap(cur.resetIds)) return;
+  const ids = isMap(next.resetIds) ? next.resetIds : {};
+  for (const [f, xs] of Object.entries(cur.resetIds)) {
+    if (!Array.isArray(xs)) continue;
+    const all = [...new Set([...list(ids[f]), ...xs].filter(k => k != null).map(String))];
+    if (all.length) ids[f] = all.length > RESET_ID_MAX ? all.slice(all.length - RESET_ID_MAX) : all;
+  }
+  if (Object.keys(ids).length) next.resetIds = ids;
+}
+// `lead` in its order, each entry only `rest` has after its nearest earlier neighbour in `rest`.
+function neighbours(lead, rest) {
+  const out = lead.slice();
+  const at = new Set(out.map(x => x.id));
+  let prev = null;
+  for (const x of rest) {
+    if (!at.has(x.id)) {
+      const i = prev == null ? -1 : out.findIndex(y => y.id === prev);
+      out.splice(i + 1, 0, x);
+      at.add(x.id);
+    }
+    prev = x.id;
+  }
+  return out;
 }
 
 // Step 3: an entry held while a removal on record says it was deleted after its last edit is
@@ -506,6 +595,12 @@ export function stampPut(cur, next, { overRead = false, stamped = false, now = D
       if (rec) next._unstamped = rec;
     }
     if (before != null && content(next) !== before) report.changed = true;
+    // For every writer (step 2b above), and the names a reset wiped: a writer from before folders
+    // drops `resetIds.routineFolders` from its merge of the same reset.
+    const folders = report ? content(next.routineFolders ?? null) : null;
+    mergeStoredFolders(cur, next);
+    if (folders != null && content(next.routineFolders ?? null) !== folders) report.changed = true;
+    keepResetIds(cur, next);
   }
   keepHeld(next, t);
   if (cur && !reset) notePrior(cur, next);

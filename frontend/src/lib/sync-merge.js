@@ -28,6 +28,9 @@
  *   - routines: union by id in the newer copy's order, a routine only the older copy has next to
  *     its neighbour there (unionByNeighbours); of an id that both have, the version
  *     edited last by its own `_ts` (stampRoutines), the newer copy's on a tie
+ *   - routineFolders: the same as routines, with an order stamp of its own
+ *     (`edited.routineFolderOrder`); a routine's folder is its `folder` field, merged per field
+ *     like its name (docs/dev/ROUTINE_FOLDERS.md)
  *   - bodyweight, measurements: union by day, the later-edited (`t`) entry of a day that both have
  *   - favEx: ordered set union, the newer copy first
  *   - exWeights: union by exercise, the better `w` for that exercise — larger for an ordinary
@@ -401,6 +404,7 @@ const bodyweightKey = e => `${e?.d}|${e?.t ?? ''}`
 const RESET_LISTS = {
   workouts: workoutKey, routines: x => x?.id, customEx: x => x?.id, bodyweight: bodyweightKey,
   measurements: bodyweightKey, gymCards: x => x?.id, equipProfiles: x => x?.id, favEx: x => x,
+  routineFolders: x => x?.id,
 }
 const RESET_MAPS = ['exNotes', 'barWeights', ...STAMPED_MAPS]
 /** An entry's name in resetIds: a workout's id (or day and start), a weigh-in's day and time, … */
@@ -453,6 +457,7 @@ export function sinceReset(S, at, ids) {
     const after = v => (Number(v) || 0) > at
     out.workouts = list(S.workouts).filter(w => w && after(workoutTime(w)))
     out.routines = list(S.routines).filter(r => r && after(r._ts))
+    out.routineFolders = list(S.routineFolders).filter(x => x && after(x._ts))
     out.customEx = list(S.customEx).filter(c => c && after(c._ts))
     out.bodyweight = list(S.bodyweight).filter(e => e && after(e.t))
     out.measurements = list(S.measurements).filter(e => e && after(e.t))
@@ -487,7 +492,7 @@ export function sinceReset(S, at, ids) {
 // ---- Deletions (`deleted`) ------------------------------------------------------------------
 //
 //   S.deleted = { workouts: { <key>: at }, routines: {…}, customEx, bodyweight, gymCards,
-//                 equipProfiles, favEx }
+//                 equipProfiles, favEx, routineFolders }
 //
 // A positive `at` is when the entry was removed on some device; a negative one (-at) is when it
 // was added back after such a removal (a favourite starred again). The store writes them on every
@@ -498,6 +503,7 @@ export function sinceReset(S, at, ids) {
 const DEL_LISTS = {
   workouts: workoutKey, routines: x => x?.id, customEx: x => x?.id, bodyweight: e => e?.d,
   measurements: e => e?.d, gymCards: x => x?.id, equipProfiles: x => x?.id, favEx: x => x,
+  routineFolders: x => x?.id,
 }
 // When an entry was last edited, to hold against a removal. Entries with no time of their own
 // (favourites, and cards and profiles saved before they were stamped) count as older than any
@@ -506,6 +512,7 @@ const DEL_TIME = {
   workouts: workoutTime, routines: x => Number(x?._ts) || 0, customEx: x => Number(x?._ts) || 0,
   bodyweight: e => Number(e?.t) || 0, measurements: e => Number(e?.t) || 0,
   gymCards: x => Number(x?._ts) || 0, equipProfiles: x => Number(x?._ts) || 0,
+  routineFolders: x => Number(x?._ts) || 0,
 }
 // Per field, the most stamps kept; past it the oldest go first.
 export const DELETED_MAX = 5000
@@ -611,6 +618,7 @@ function applyDeletions(S, deleted) {
 // merge of their own are not stamped here; a field nobody stamped follows the newer copy, as before.
 const OWN_MERGE = new Set([
   '_ts', '_rev', '_wid', '_wids', '_unstamped', '_prior', 'active', 'unit', 'unitSet', 'resetAt', 'resetIds', 'deleted', 'edited', 'undone', 'routineOrder',
+  'routineFolderOrder', 'routineFolders',
   'workouts', 'routines', 'customEx', 'equipProfiles', 'gymCards', 'bodyweight', 'measurements', 'favEx',
   'exWeights', 'balanceOverrides', 'loadKind', 'plates', 'dbLoad', 'dumbbells', 'dayNotes',
 ])
@@ -619,6 +627,10 @@ const PER_KEY = new Set(['week', 'dayPlan', 'exNotes', 'barWeights'])
 // The order of the routines, as the list shows them, is a choice of its own (`edited.routineOrder`):
 // a reorder on one device was lost to the other's whole copy whenever that one was newer.
 export const ORDER_KEY = 'routineOrder'
+// The order of the routine folders, the same way (docs/dev/ROUTINE_FOLDERS.md).
+export const FOLDER_ORDER_KEY = 'routineFolderOrder'
+// The lists whose order the user sets, and the stamp of that order in `edited`.
+const ORDERED = { routines: ORDER_KEY, routineFolders: FOLDER_ORDER_KEY }
 // Whether two lists hold the routines both have in a different order (added or removed ones aside).
 export function orderMoved(a, b) {
   const ida = list(a).map(r => r?.id).filter(id => id != null), idb = list(b).map(r => r?.id).filter(id => id != null)
@@ -649,6 +661,7 @@ export function stampEdits(prev, next, now = Date.now()) {
     } else if (p !== n && !same(p, n)) { ed[k] = now; touched = true }
   }
   if (prev && prev.routines !== next.routines && orderMoved(prev.routines, next.routines)) { ed[ORDER_KEY] = now; touched = true }
+  if (prev && prev.routineFolders !== next.routineFolders && orderMoved(prev.routineFolders, next.routineFolders)) { ed[FOLDER_ORDER_KEY] = now; touched = true }
   // An own accent colour is one choice made in two fields: picking a new colour while the own
   // colour is already on changes only accentCustom, and a preset picked earlier on another device
   // then kept `accent` and won (QA 2026-10-06). Either one changed to an own colour stamps both.
@@ -790,15 +803,17 @@ export function mergeStates(a0, b0, { prefer } = {}) {
     }
   }
   out.workouts.sort(byDayStart)
-  for (const f of ['routines', 'customEx', 'equipProfiles', 'gymCards']) {
-    if (list(n[f]).length || list(o[f]).length) out[f] = (f === 'routines' ? unionByNeighbours : unionById)(n[f], o[f]).map(clone)
+  for (const f of ['routines', 'routineFolders', 'customEx', 'equipProfiles', 'gymCards']) {
+    if (list(n[f]).length || list(o[f]).length) out[f] = (ORDERED[f] ? unionByNeighbours : unionById)(n[f], o[f]).map(clone)
   }
-  // The routines in the order chosen last (`edited.routineOrder`), the newer copy's without a
-  // stamp to tell; one only the other copy has still goes next to its neighbour there. Each entry
-  // is still the newer copy's version here, merged with the other's below.
-  if (!prefer && out.routines && (Number(o.edited?.[ORDER_KEY]) || 0) > (Number(n.edited?.[ORDER_KEY]) || 0)) {
-    const mine = new Map(list(n.routines).filter(r => r?.id != null).map(r => [r.id, r]))
-    out.routines = unionByNeighbours(o.routines, n.routines).map(r => clone(r?.id != null && mine.has(r.id) ? mine.get(r.id) : r))
+  // The routines (and their folders) in the order chosen last (`edited.routineOrder`,
+  // `edited.routineFolderOrder`), the newer copy's without a stamp to tell; one only the other
+  // copy has still goes next to its neighbour there. Each entry is still the newer copy's version
+  // here, merged with the other's below.
+  for (const [f, key] of Object.entries(ORDERED)) {
+    if (prefer || !out[f] || !((Number(o.edited?.[key]) || 0) > (Number(n.edited?.[key]) || 0))) continue
+    const mine = new Map(list(n[f]).filter(r => r?.id != null).map(r => [r.id, r]))
+    out[f] = unionByNeighbours(o[f], n[f]).map(r => clone(r?.id != null && mine.has(r.id) ? mine.get(r.id) : r))
   }
   // A routine edited on both sides keeps the version edited last. Taking the newer copy's
   // version dropped a plan edit made on one device whenever the other had since logged a set or
@@ -808,7 +823,7 @@ export function mergeStates(a0, b0, { prefer } = {}) {
   // are both kept. The same for a custom exercise (a photo added on one device survives a rename
   // on the other), an equipment profile and a gym card.
   if (!prefer) {
-    for (const f of ['routines', 'customEx', 'equipProfiles', 'gymCards']) {
+    for (const f of ['routines', 'routineFolders', 'customEx', 'equipProfiles', 'gymCards']) {
       if (!out[f]) continue
       const other = new Map(list(o[f]).filter(x => x?.id != null).map(x => [x.id, x]))
       out[f] = out[f].map(x => {
@@ -932,8 +947,9 @@ export function stampRestore(next, others = [], now = Date.now()) {
     for (const S of [next, ...others]) for (const s of Object.keys(isMap(S?.[f]) ? S[f] : {})) ed[`${f}.${s}`] = now
   }
   ed[ORDER_KEY] = now
+  ed[FOLDER_ORDER_KEY] = now
   next.edited = ed
-  for (const f of ['routines', 'customEx']) for (const x of list(next[f])) if (x && typeof x === 'object') x._ts = now
+  for (const f of ['routines', 'routineFolders', 'customEx']) for (const x of list(next[f])) if (x && typeof x === 'object') x._ts = now
   return next
 }
 
@@ -953,7 +969,7 @@ export function stampReplace(next, others = [], now = Date.now()) {
   const known = {}
   for (const f of Object.keys(DEL_LISTS)) known[f] = others.flatMap(o => list(o?.[f])).filter(x => x != null)
   stampDeletions(known, next, now)
-  for (const f of ['workouts', 'routines', 'customEx', 'equipProfiles', 'gymCards']) {
+  for (const f of ['workouts', 'routines', 'routineFolders', 'customEx', 'equipProfiles', 'gymCards']) {
     const versions = new Map()
     for (const o of others) for (const x of list(o?.[f])) if (x && typeof x === 'object' && x.id != null) versions.set(x.id, [...(versions.get(x.id) || []), x])
     for (const x of list(next[f])) {
@@ -1001,7 +1017,7 @@ export function highestStamp(S) {
   see(S.resetAt)
   if (isMap(S.edited)) for (const v of Object.values(S.edited)) see(v)
   if (isMap(S.deleted)) for (const f of Object.values(S.deleted)) if (isMap(f)) for (const v of Object.values(f)) see(v)
-  for (const f of ['workouts', 'routines', 'customEx', 'equipProfiles', 'gymCards']) {
+  for (const f of ['workouts', 'routines', 'routineFolders', 'customEx', 'equipProfiles', 'gymCards']) {
     for (const x of list(S[f])) {
       if (!x || typeof x !== 'object') continue
       see(x._ts)
@@ -1058,6 +1074,7 @@ export function stampChange(prev, next, wall = Date.now()) {
   stampCustomEx(prev?.customEx, next.customEx, now)
   stampEntries(prev?.equipProfiles, next.equipProfiles, now)
   stampEntries(prev?.gymCards, next.gymCards, now)
+  stampEntries(prev?.routineFolders, next.routineFolders, now)
   stampDeletions(prev, next, now)
   stampEdits(prev, next, now)
   return now
@@ -1124,7 +1141,7 @@ export function localExtras(local, server) {
   const keysNew = f => Object.entries(isMap(local?.[f]) ? local[f] : {})
     .filter(([k, v]) => v != null && !(Array.isArray(v) && !v.length) && !(isMap(server?.[f]) && k in server[f])).length
   const measured = new Set(list(server?.measurements).map(e => e?.d))
-  const setup = ['gymCards', 'equipProfiles'].reduce((n, f) => n + list(local?.[f]).filter(x => x && x.id != null && !ids(f).has(x.id)).length, 0) +
+  const setup = ['gymCards', 'equipProfiles', 'routineFolders'].reduce((n, f) => n + list(local?.[f]).filter(x => x && x.id != null && !ids(f).has(x.id)).length, 0) +
     list(local?.measurements).filter(e => e && e.d != null && !measured.has(e.d)).length +
     Object.entries(isMap(local?.dayNotes) ? local.dayNotes : {}).filter(([k, v]) => readNote(v) && !readNote(server?.dayNotes?.[k])).length +
     keysNew('week') + keysNew('dayPlan') + keysNew('exNotes')

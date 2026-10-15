@@ -80,6 +80,14 @@ describe('list_routines', () => {
     expect(detail.exclude_from_progression).toBe(true)
   })
 
+  test('names the folder a routine is in, null for none or one that is gone', () => {
+    S.routineFolders = [{ id: 'F', name: 'PPL' }]
+    S.routines[0].folder = 'F'
+    S.routines[1].folder = 'deleted-elsewhere'
+    const r = call('list_routines').routines
+    expect(r.map(x => x.folder)).toEqual(['PPL', null, null])
+  })
+
   test('list_routines entries line up with get_routine (no id drift)', () => {
     const list = call('list_routines').routines
     list.forEach(summary => {

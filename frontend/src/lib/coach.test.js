@@ -401,6 +401,23 @@ describe('snapshots and revert', () => {
     expect(s.coach.log.at(-1).kind).toBe('revert')
   })
 
+  it('keeps the folder a routine was moved to after the change, and a removed routine its own', () => {
+    const s = JSON.parse(JSON.stringify(state()))
+    s.routines[0].folder = 'F'
+    s.routines.push({ id: 'rz', name: 'B', emoji: '💪', ex: [], folder: 'G' })
+    applyChangeSet(s, proposal([change({ type: 'sets', after: 4 })]), ['c1'])
+    s.routines[0].folder = 'H'                       // moved after the Coach's change
+    s.routines = s.routines.filter(r => r.id !== 'rz')  // and B deleted since
+    expect(revertLast(s)).toBe(true)
+    expect(s.routines[0].ex[0].sets).toBe(3)
+    expect(s.routines.filter(r => ['r1', 'rz'].includes(r.id)).map(r => [r.id, r.folder])).toEqual([['r1', 'H'], ['rz', 'G']])
+    // taken out of a folder after the change: stays out
+    applyChangeSet(s, proposal([change({ type: 'sets', after: 4 })]), ['c1'])
+    delete s.routines[0].folder
+    revertLast(s)
+    expect('folder' in s.routines[0]).toBe(false)
+  })
+
   it('keeps a bounded number of snapshots', () => {
     const s = JSON.parse(JSON.stringify(state()))
     for (let i = 0; i < SNAPSHOT_MAX + 3; i++) pushSnapshot(s, 'p' + i)

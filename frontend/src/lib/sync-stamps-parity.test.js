@@ -3,7 +3,7 @@
    its own changes (an older app, an API planner) must hold in this side's merge. */
 import { describe, expect, it } from 'vitest'
 import * as S from '../../../api/sync-stamps.js'
-import { highestStamp, mergeDeletions, mergeEdits, mergeStates, stampChange, stampEntry, stampEdits, stampRestore } from './sync-merge.js'
+import { highestStamp, mergeDeletions, mergeEdits, mergeEntry, mergeStates, stampChange, stampEntry, stampEdits, stampRestore } from './sync-merge.js'
 
 const clone = v => JSON.parse(JSON.stringify(v))
 function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296 } }
@@ -135,3 +135,15 @@ describe('the write ids are no setting', () => {
   })
 })
 
+
+describe('the server\'s mergeEntry (routine folders) matches the app\'s', () => {
+  it('on random folder versions without Undo markers', () => {
+    for (let seed = 1; seed < 300; seed++) {
+      const R = rng(seed)
+      const n = () => Math.floor(R() * 10)
+      const v = () => ({ id: 'F', name: R() < 0.5 ? 'A' : 'B', _ts: n(), ...(R() < 0.6 ? { _f: { name: n(), ...(R() < 0.3 ? { x: n() } : {}) } } : {}), ...(R() < 0.3 ? { x: n() } : {}) })
+      const a = v(), b = v()
+      expect(S.mergeEntry(clone(a), clone(b))).toEqual(mergeEntry(clone(a), clone(b)))
+    }
+  })
+})
