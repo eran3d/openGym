@@ -1416,6 +1416,7 @@ export const PT_BR_OVERRIDES = {
   'Move {0} down': 'Descer {0}',
   'Folder options': 'Opções da pasta',
   'Folder options for {0}': 'Opções da pasta {0}',
+  'Nothing in here yet.': 'Ainda não tem nada aqui.',
   'Nothing in here yet. Move a routine in with Edit.': 'Ainda não tem nada aqui. Mova uma rotina para cá em Editar.',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'Arraste para reordenar. Toque no sinal de menos para excluir e na pasta para mover uma rotina.',
   'Move {0} to a folder': 'Mover {0} para uma pasta',

@@ -2258,6 +2258,7 @@ export default {
   'Move {0} down': 'Переместить {0} вниз',
   'Folder options': 'Параметры папки',
   'Folder options for {0}': 'Параметры папки {0}',
+  'Nothing in here yet.': 'Пока пусто.',
   'Nothing in here yet. Move a routine in with Edit.': 'Пока пусто. Переместите сюда программу в режиме «Изменить».',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'Перетащите, чтобы изменить порядок. Нажмите минус, чтобы удалить, папку, чтобы переместить программу.',
   'Move {0} to a folder': 'Переместить {0} в папку',

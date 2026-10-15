@@ -2247,6 +2247,7 @@ export default {
   'Move {0} down': '將 {0} 下移',
   'Folder options': '資料夾選項',
   'Folder options for {0}': '{0} 的資料夾選項',
+  'Nothing in here yet.': '這裡還是空的。',
   'Nothing in here yet. Move a routine in with Edit.': '這裡還是空的。從「編輯」把課表移進來。',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': '拖曳可調整順序。點減號可刪除，點資料夾可移動課表。',
   'Move {0} to a folder': '將 {0} 移到資料夾',

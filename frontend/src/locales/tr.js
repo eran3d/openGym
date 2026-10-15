@@ -2254,6 +2254,7 @@ export default {
   'Move {0} down': '{0} aşağı taşı',
   'Folder options': 'Klasör seçenekleri',
   'Folder options for {0}': '{0} klasör seçenekleri',
+  'Nothing in here yet.': 'Henüz boş.',
   'Nothing in here yet. Move a routine in with Edit.': 'Henüz boş. Düzenle’den buraya bir rutin taşı.',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'Sıralamak için sürükle. Silmek için eksiye, rutini taşımak için klasöre dokun.',
   'Move {0} to a folder': '{0} klasöre taşı',

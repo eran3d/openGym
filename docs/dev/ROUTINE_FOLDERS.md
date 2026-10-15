@@ -105,8 +105,11 @@ Two kinds of older writer meet these fields, and the server handles them differe
     `keepHeld` like a deliberate re-add, and the folder came back for good.
 
   So on **every** PUT (not a reset) the server merges the folder list with the stored one itself
-  (`stampPut` step 2b, `mergeStoredFolders`): union by id, in the writer's order, or the stored
-  order when the writer's `edited.routineFolderOrder` (as sent) is older than the stored one; a
+  (`stampPut` step 2b, `mergeStoredFolders`): union by id, in the writer's order only when it is a reorder
+  of its own (the folders both lists hold stand in another order, and `edited.routineFolderOrder`,
+  after the server joined the records and stamped a writer that does not stamp, is later than the
+  stored one), the stored order otherwise: an older app's merge joins `edited` key by key, so it
+  carries the stored order stamp next to its own older list; a
   folder only one side has goes next to its neighbour there; a folder both have merges field by
   field (`mergeEntry`, the app's rule without Undo markers, checked against it by
   `sync-stamps-parity.test.js`). The removals on record (`deleted`, already joined with the stored
@@ -137,7 +140,7 @@ Two kinds of older writer meet these fields, and the server handles them differe
 | Start, day sheets, routine pickers, the loop | Unchanged, the flat list. Folders are Plan's grouping only. |
 | Backup export/import | The whole state, so both fields travel. `stampRestore`/`stampReplace` stamp folders like routines. |
 | Plan file (share) | Carries `folders: [{ id, name }]` for the folders its routines use, and `folder` on each routine. Import matches a folder by name (case and spacing ignored) or makes a new one; an older importer ignores both. |
-| Coach | Left out of the plan payload on purpose: the Coach reasons about exercises, sets and the week, and a folder changes none of that. Leaving it out also keeps the plan fingerprint (`canonicalPlan`/`hashPlan`, mirrored in `api/coach`) the same, so no proposal goes stale because a routine was filed. A routine the Coach creates lands outside any folder; a revert restores routines with the `folder` they had. Folders are not in the Coach's snapshot, so a revert never adds or removes one: a folder whose routines the revert took away (a created plan filed into a folder, then undone) stays, empty, until it is deleted. |
+| Coach | Left out of the plan payload on purpose: the Coach reasons about exercises, sets and the week, and a folder changes none of that. Leaving it out also keeps the plan fingerprint (`canonicalPlan`/`hashPlan`, mirrored in `api/coach`) the same, so no proposal goes stale because a routine was filed. A routine the Coach creates lands outside any folder. A revert puts the routines back as they were, but each one that still exists keeps the folder it is in now (`revertLast`): a move made after the change is not the Coach's to undo. A routine the revert brings back keeps its folder from the snapshot. Folders are not in the Coach's snapshot, so a revert never adds or removes one: a folder whose routines the revert took away (a created plan filed into a folder, then undone) stays, empty, until it is deleted. |
 | MCP `list_routines` | Each routine gains `folder` (the folder's name, or null), so an LLM client sees the grouping the user sees. |
 
 ## 5. UI (Plan → Routines)

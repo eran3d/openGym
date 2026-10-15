@@ -458,9 +458,8 @@ export function keepUnknown(cur, next) {
 // passes keepUnknown by, and its merge after a 409 takes `routineFolders` whole from the newer
 // copy and drops `deleted.routineFolders`: its push set a rename back, lost a new folder, and
 // brought a deleted one back for good (keepHeld then took it for a re-add). So the server does the
-// app's merge of that list itself: the union by id (the writer's order, or the stored one when the
-// writer's order stamp is older than the stored one, a folder only one side has next to its
-// neighbour there), each folder field by field (`_f`, mergeEntry), then the removals on record.
+// app's merge of that list itself: the union by id (the writer's order when it reordered them,
+// the stored one otherwise, a folder only one side has next to its neighbour there), each folder field by field (`_f`, mergeEntry), then the removals on record.
 // For an updated app this changes nothing: it sent the merge of the same two copies.
 export function mergeEntry(a, b) {
   const [n, o] = (Number(b?._ts) || 0) > (Number(a?._ts) || 0) ? [b, a] : [a, b];
@@ -478,11 +477,17 @@ export function mergeEntry(a, b) {
   if (ts) out._ts = ts;
   return out;
 }
-function mergeStoredFolders(cur, next, sent) {
+function mergeStoredFolders(cur, next) {
   const mine = list(cur?.routineFolders).filter(x => isMap(x) && x.id != null);
   const theirs = list(next.routineFolders).filter(x => isMap(x) && x.id != null);
   if (!mine.length && !theirs.length) return;
-  const stale = (Number(sent?.[ORDERED.routineFolders]) || 0) < (Number(cur?.edited?.[ORDERED.routineFolders]) || 0);
+  // The writer's order only when it is a reorder of its own: the folders both lists hold stand in
+  // another order, and the record of edits (joined with the stored one, step 1, and stamped for a
+  // writer that does not stamp, step 2) holds a later order stamp than the stored copy. An older
+  // app's merge joins `edited` key by key, so it carries the stored stamp while its list is its
+  // own older one; that stamp is not later, and the stored order stays.
+  const key = ORDERED.routineFolders;
+  const stale = !(orderMoved(mine, theirs) && (Number(next.edited?.[key]) || 0) > (Number(cur?.edited?.[key]) || 0));
   const [lead, rest] = stale ? [mine, theirs] : [theirs, mine];
   const by = new Map(rest.map(x => [x.id, x]));
   const leadIds = new Set(lead.map(x => x.id));
@@ -593,7 +598,7 @@ export function stampPut(cur, next, { overRead = false, stamped = false, now = D
     // For every writer (step 2b above), and the names a reset wiped: a writer from before folders
     // drops `resetIds.routineFolders` from its merge of the same reset.
     const folders = report ? content(next.routineFolders ?? null) : null;
-    mergeStoredFolders(cur, next, sent);
+    mergeStoredFolders(cur, next);
     if (folders != null && content(next.routineFolders ?? null) !== folders) report.changed = true;
     keepResetIds(cur, next);
   }

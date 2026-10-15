@@ -2254,6 +2254,7 @@ export default {
   'Move {0} down': '{0} 아래로 이동',
   'Folder options': '폴더 옵션',
   'Folder options for {0}': '{0} 폴더 옵션',
+  'Nothing in here yet.': '아직 비어 있어요.',
   'Nothing in here yet. Move a routine in with Edit.': '아직 비어 있어요. 편집에서 루틴을 옮겨 오세요.',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': '드래그해서 순서를 바꾸세요. 삭제하려면 마이너스를, 루틴을 옮기려면 폴더를 탭하세요.',
   'Move {0} to a folder': '{0} 폴더로 이동',

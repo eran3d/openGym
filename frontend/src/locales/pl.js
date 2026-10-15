@@ -2254,6 +2254,7 @@ export default {
   'Move {0} down': 'Przesuń {0} w dół',
   'Folder options': 'Opcje folderu',
   'Folder options for {0}': 'Opcje folderu {0}',
+  'Nothing in here yet.': 'Na razie pusto.',
   'Nothing in here yet. Move a routine in with Edit.': 'Na razie pusto. Przenieś tu plan treningowy w trybie Edytuj.',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'Przeciągnij, aby zmienić kolejność. Dotknij minusa, aby usunąć, a folderu, aby przenieść plan.',
   'Move {0} to a folder': 'Przenieś {0} do folderu',

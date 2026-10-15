@@ -2309,6 +2309,7 @@ export default {
   'Move {0} down': 'نقل {0} للأسفل',
   'Folder options': 'خيارات المجلد',
   'Folder options for {0}': 'خيارات المجلد {0}',
+  'Nothing in here yet.': 'لا شيء هنا بعد.',
   'Nothing in here yet. Move a routine in with Edit.': 'لا شيء هنا بعد. انقل روتينًا إليه من تعديل.',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'اسحب لإعادة الترتيب. اضغط علامة الناقص للحذف، والمجلد لنقل روتين.',
   'Move {0} to a folder': 'نقل {0} إلى مجلد',

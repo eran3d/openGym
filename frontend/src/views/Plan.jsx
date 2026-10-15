@@ -478,40 +478,40 @@ function Routines({ S, update, nav }) {
         <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New routine')}</Button>
       </div>
     </div>
-    {routines.length || folders.length ? <>
-      {(loose.length > 0 || !folders.length) && group(null, loose)}
-      {folders.map(({ folder: f, routines: rs }, i) => {
-        // Edit shows every folder open: a routine in a closed one could not be moved or deleted.
-        const open = edit || !closed.includes(f.id)
-        return <section key={f.id} className="plan-folder" aria-label={folderLabel(f)}>
-          <div className="row plan-folder-h">
-            <button className="plan-folder-t" aria-expanded={edit ? undefined : open} disabled={edit} onClick={() => toggle(f.id)}>
-              {!edit && <Icon name={open ? 'chevronDown' : 'chevronRight'} className="plan-folder-chev" />}
-              <Icon name="folder" />
-              <span className="plan-folder-name">{folderLabel(f)}</span>
-              <span className="plan-folder-n">{rs.length}</span>
-            </button>
-            {edit && folders.length > 1 && <>
-              <button className="iconbtn plan-folder-mv" aria-label={t('Move {0} up', folderLabel(f))} title={t('Move up')}
-                disabled={i === 0} onClick={() => update(s => { moveFolder(s, f.id, -1) })}><Icon name="arrowUp" /></button>
-              <button className="iconbtn plan-folder-mv" aria-label={t('Move {0} down', folderLabel(f))} title={t('Move down')}
-                disabled={i === folders.length - 1} onClick={() => update(s => { moveFolder(s, f.id, 1) })}><Icon name="arrowDown" /></button>
-            </>}
-            <button className="iconbtn plan-folder-mv" aria-label={t('Folder options for {0}', folderLabel(f))} title={t('Folder options')}
-              onClick={() => folderMenu(f)}><Icon name="more" /></button>
-          </div>
-          {open && (rs.length
-            ? group(f.id, rs)
-            : <div className="plan-folder-empty small dim">{t('Nothing in here yet. Move a routine in with Edit.')}</div>)}
-        </section>
-      })}
-      <p className="sect-f">{!edit ? t('Tap a routine to edit it. Reorder and delete are behind Edit.')
-        : folders.length ? t('Drag to reorder. Tap the minus to delete, the folder to move a routine.')
-          : t('Drag to reorder. Tap the minus to delete.')}</p>
-    </> : <>
+    {/* No routines: the way in, with any folders still below it to rename or delete. */}
+    {!routines.length && <>
       <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Make one, or grab the starter plan to get going.')}</div>
       <Button icon="clipboard" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>
     </>}
+    {routines.length > 0 && (loose.length > 0 || !folders.length) && group(null, loose)}
+    {folders.map(({ folder: f, routines: rs }, i) => {
+      // Edit shows every folder open: a routine in a closed one could not be moved or deleted.
+      const open = edit || !closed.includes(f.id)
+      return <section key={f.id} className="plan-folder" aria-label={folderLabel(f)}>
+        <div className="row plan-folder-h">
+          <button className="plan-folder-t" aria-expanded={edit ? undefined : open} disabled={edit} onClick={() => toggle(f.id)}>
+            {!edit && <Icon name={open ? 'chevronDown' : 'chevronRight'} className="plan-folder-chev" />}
+            <Icon name="folder" />
+            <span className="plan-folder-name">{folderLabel(f)}</span>
+            <span className="plan-folder-n">{rs.length}</span>
+          </button>
+          {edit && folders.length > 1 && <>
+            <button className="iconbtn plan-folder-mv" aria-label={t('Move {0} up', folderLabel(f))} title={t('Move up')}
+              disabled={i === 0} onClick={() => update(s => { moveFolder(s, f.id, -1) })}><Icon name="arrowUp" /></button>
+            <button className="iconbtn plan-folder-mv" aria-label={t('Move {0} down', folderLabel(f))} title={t('Move down')}
+              disabled={i === folders.length - 1} onClick={() => update(s => { moveFolder(s, f.id, 1) })}><Icon name="arrowDown" /></button>
+          </>}
+          <button className="iconbtn plan-folder-mv" aria-label={t('Folder options for {0}', folderLabel(f))} title={t('Folder options')}
+            onClick={() => folderMenu(f)}><Icon name="more" /></button>
+        </div>
+        {open && (rs.length
+          ? group(f.id, rs)
+          : <div className="plan-folder-empty small dim">{edit || !routines.length ? t('Nothing in here yet.') : t('Nothing in here yet. Move a routine in with Edit.')}</div>)}
+      </section>
+    })}
+    {routines.length > 0 && <p className="sect-f">{!edit ? t('Tap a routine to edit it. Reorder and delete are behind Edit.')
+      : folders.length ? t('Drag to reorder. Tap the minus to delete, the folder to move a routine.')
+        : t('Drag to reorder. Tap the minus to delete.')}</p>}
   </>
 }
 

@@ -2254,6 +2254,7 @@ export default {
   'Move {0} down': '{0} नीचे ले जाएँ',
   'Folder options': 'फ़ोल्डर विकल्प',
   'Folder options for {0}': '{0} के फ़ोल्डर विकल्प',
+  'Nothing in here yet.': 'यहाँ अभी कुछ नहीं है।',
   'Nothing in here yet. Move a routine in with Edit.': 'यहाँ अभी कुछ नहीं है। संपादित करें से कोई रूटीन यहाँ लाएँ।',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'क्रम बदलने के लिए खींचें। हटाने के लिए माइनस पर, रूटीन ले जाने के लिए फ़ोल्डर पर टैप करें।',
   'Move {0} to a folder': '{0} को फ़ोल्डर में ले जाएँ',

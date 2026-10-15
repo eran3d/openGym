@@ -2333,6 +2333,7 @@ export default {
   'Move {0} down': '{0} নিচে সরান',
   'Folder options': 'ফোল্ডারের বিকল্প',
   'Folder options for {0}': '{0}-এর ফোল্ডার বিকল্প',
+  'Nothing in here yet.': 'এখানে এখনো কিছু নেই।',
   'Nothing in here yet. Move a routine in with Edit.': 'এখানে এখনো কিছু নেই। সম্পাদনা থেকে একটি রুটিন এখানে সরান।',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'ক্রম বদলাতে টেনে সরান। মুছতে মাইনাসে, রুটিন সরাতে ফোল্ডারে ট্যাপ করুন।',
   'Move {0} to a folder': '{0} ফোল্ডারে সরান',

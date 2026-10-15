@@ -2257,6 +2257,7 @@ export default {
   'Move {0} down': '{0} lejjebb',
   'Folder options': 'Mappa beállításai',
   'Folder options for {0}': '{0} mappa beállításai',
+  'Nothing in here yet.': 'Még üres.',
   'Nothing in here yet. Move a routine in with Edit.': 'Még üres. A Szerkesztésben tehetsz ide rutint.',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'Húzd az átrendezéshez. Koppints a mínuszra a törléshez, a mappára az áthelyezéshez.',
   'Move {0} to a folder': '{0} áthelyezése mappába',

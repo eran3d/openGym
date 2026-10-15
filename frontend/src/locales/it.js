@@ -2254,6 +2254,7 @@ export default {
   'Move {0} down': 'Sposta {0} giù',
   'Folder options': 'Opzioni cartella',
   'Folder options for {0}': 'Opzioni della cartella {0}',
+  'Nothing in here yet.': 'Ancora vuota.',
   'Nothing in here yet. Move a routine in with Edit.': 'Ancora vuota. Sposta qui una routine da Modifica.',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'Trascina per riordinare. Tocca il meno per eliminare, la cartella per spostare una routine.',
   'Move {0} to a folder': 'Sposta {0} in una cartella',

@@ -78,6 +78,24 @@ describe('routine folders in Plan', () => {
     expect(JSON.parse(localStorage.getItem(FOLDERS_CLOSED_KEY))).toEqual(['G'])
   })
 
+  it('an empty folder says how to fill it, but not in Edit, where the folder button is the way', () => {
+    useStore.setState(s => ({ S: { ...s.S, routines: s.S.routines.filter(r => r.folder !== 'G') } }))
+    mount()
+    expect(host.querySelector('.plan-folder-empty').textContent).toBe('Nothing in here yet. Move a routine in with Edit.')
+    click(button('Edit'))
+    expect(host.querySelector('.plan-folder-empty').textContent).toBe('Nothing in here yet.')
+  })
+
+  it('folders but no routines: the starter-plan way in stays, and the folders can still be managed', () => {
+    useStore.setState(s => ({ S: { ...s.S, routines: [] } }))
+    mount()
+    expect(host.textContent).toContain('No routines yet.')
+    expect(button('Load starter plan')).toBeTruthy()
+    expect(folderHeads().map(h => h.textContent)).toEqual(['PPL0', 'Hotel0'])
+    expect(host.querySelector('button[aria-label="Folder options for PPL"]')).not.toBe(null)
+    expect(host.querySelector('.plan-folder-empty').textContent).toBe('Nothing in here yet.')
+  })
+
   it('New folder is off at the cap', () => {
     useStore.setState(s => ({ S: { ...s.S, routineFolders: Array.from({ length: 50 }, (_, i) => ({ id: 'f' + i, name: 'F' + i })) } }))
     mount()

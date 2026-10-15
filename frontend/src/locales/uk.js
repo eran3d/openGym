@@ -2251,6 +2251,7 @@ export default {
   'Move {0} down': 'Перемістити {0} вниз',
   'Folder options': 'Параметри теки',
   'Folder options for {0}': 'Параметри теки {0}',
+  'Nothing in here yet.': 'Поки порожньо.',
   'Nothing in here yet. Move a routine in with Edit.': 'Поки порожньо. Перемісти сюди програму в режимі «Змінити».',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'Перетягни, щоб змінити порядок. Натисни мінус, щоб видалити, теку, щоб перемістити програму.',
   'Move {0} to a folder': 'Перемістити {0} в теку',

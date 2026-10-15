@@ -2265,6 +2265,7 @@ export default {
   'Move {0} down': 'ย้าย {0} ลง',
   'Folder options': 'ตัวเลือกโฟลเดอร์',
   'Folder options for {0}': 'ตัวเลือกโฟลเดอร์ {0}',
+  'Nothing in here yet.': 'ยังว่างอยู่',
   'Nothing in here yet. Move a routine in with Edit.': 'ยังว่างอยู่ ย้ายรูทีนมาไว้ที่นี่ได้จากแก้ไข',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'ลากเพื่อจัดลำดับ แตะเครื่องหมายลบเพื่อลบ แตะโฟลเดอร์เพื่อย้ายรูทีน',
   'Move {0} to a folder': 'ย้าย {0} ไปโฟลเดอร์',

@@ -129,3 +129,28 @@ test('the same reset: names a writer from before folders dropped come back', () 
   stampPut(cur, fresh, { stamped: true, now: T + 20 });
   assert.equal(fresh.resetIds.routineFolders, undefined);
 });
+
+test('a v1.4 push whose merge carried the stored order stamp keeps the stored order (and the removal)', () => {
+  const cur = doc();
+  cur.routineFolders = [{ id: 'H', name: 'Deload', _ts: T }, cur.routineFolders[0]];   // H moved first, G deleted
+  cur.deleted = { routineFolders: { G: T + 10 } };
+  cur.edited = { restSec: T, routineFolderOrder: T + 10 };
+  // its own older list (F, G, H), with `edited` joined key by key: the stored stamp, not a later one
+  const next = { ...clone(cur), routineFolders: [doc().routineFolders[0], doc().routineFolders[1], { id: 'H', name: 'Deload', _ts: T }],
+    edited: { restSec: T + 50, routineFolderOrder: T + 10 } };
+  delete next.deleted;
+  stampPut(cur, next, { overRead: true, stamped: true, now: T + 60 });
+  assert.deepEqual(next.routineFolders.map(f => f.id), ['H', 'F']);
+});
+
+test('an API client that sends no record of edits keeps its reorder of the folders', () => {
+  const cur = doc();
+  cur.routineFolders.push({ id: 'H', name: 'Deload', _ts: T });
+  cur.edited = { restSec: T, routineFolderOrder: T + 5 };
+  const next = clone(cur);
+  delete next.edited;
+  next.routineFolders = [next.routineFolders[1], next.routineFolders[0], next.routineFolders[2]];
+  stampPut(cur, next, { overRead: true, stamped: false, now: T + 100 });
+  assert.deepEqual(next.routineFolders.map(f => f.id), ['G', 'F', 'H']);
+  assert.ok(next.edited.routineFolderOrder >= T + 100);
+});

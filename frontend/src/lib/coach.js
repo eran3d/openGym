@@ -275,7 +275,15 @@ export function revertLast(s) {
   const c = coachOf(s)
   const snap = (c.snapshots || []).pop()
   if (!snap) return false
-  s.routines = clone(snap.routines)
+  // A routine's folder is not the Coach's to put back (docs/dev/ROUTINE_FOLDERS.md): a routine
+  // filed or moved after the change keeps the folder it is in now.
+  const now = new Map((s.routines || []).filter(r => r && r.id != null).map(r => [r.id, r]))
+  s.routines = clone(snap.routines).map(r => {
+    const cur = r && now.get(r.id)
+    if (!cur) return r
+    const { folder: _was, ...rest } = r
+    return cur.folder != null ? { ...rest, folder: cur.folder } : rest
+  })
   s.week = clone(snap.week)
   // Snapshots taken before this field existed have nothing to put back.
   if (snap.dayPlanRestore) Object.assign(s.dayPlan, snap.dayPlanRestore)

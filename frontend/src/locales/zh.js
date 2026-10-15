@@ -2254,6 +2254,7 @@ export default {
   'Move {0} down': '将 {0} 下移',
   'Folder options': '文件夹选项',
   'Folder options for {0}': '{0} 的文件夹选项',
+  'Nothing in here yet.': '这里还是空的。',
   'Nothing in here yet. Move a routine in with Edit.': '这里还是空的。在“编辑”里把训练日移进来。',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': '拖动可调整顺序。点减号可删除，点文件夹可移动训练日。',
   'Move {0} to a folder': '将 {0} 移到文件夹',

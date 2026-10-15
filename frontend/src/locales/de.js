@@ -2274,6 +2274,7 @@ export default {
   'Move {0} down': '{0} nach unten',
   'Folder options': 'Ordneroptionen',
   'Folder options for {0}': 'Ordneroptionen für {0}',
+  'Nothing in here yet.': 'Noch leer.',
   'Nothing in here yet. Move a routine in with Edit.': 'Noch leer. Verschiebe eine Routine über Bearbeiten hierher.',
   'Drag to reorder. Tap the minus to delete, the folder to move a routine.': 'Ziehen zum Sortieren. Tippe auf das Minus zum Löschen, auf den Ordner zum Verschieben.',
   'Move {0} to a folder': '{0} in einen Ordner verschieben',
