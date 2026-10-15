@@ -24,7 +24,7 @@ export const anthropicSpec = {
     system: system
       ? [{ type: 'text', text: SYSTEM_PROMPT + '\n\n' + system, cache_control: { type: 'ephemeral' } }]
       : SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: attachments && attachments.length ? [...anthropicParts(attachments), { type: 'text', text: prompt }] : prompt }]
+    messages: [{ role: 'user', content: attachments && attachments.length ? [...cachedParts(attachments), { type: 'text', text: prompt }] : prompt }]
   }),
   errorMessage: data => data && data.error && data.error.message,
   readText: data => {
@@ -44,6 +44,16 @@ export function anthropicParts(attachments) {
     source: { type: 'base64', media_type: a.mediaType, data: a.data },
     ...(a.mediaType === 'application/pdf' && a.name ? { title: a.name } : {})
   }));
+}
+
+/* The files with a cache breakpoint on the last one: the system block and the files are then
+   one cached prefix, and the repair round (same rules, same files, different text after them)
+   reads a PDF from the cache instead of paying for every page again. Two breakpoints of the four
+   Anthropic allows. */
+function cachedParts(attachments) {
+  const parts = anthropicParts(attachments);
+  if (parts.length) parts[parts.length - 1] = { ...parts[parts.length - 1], cache_control: { type: 'ephemeral' } };
+  return parts;
 }
 
 export default httpAdapter(anthropicSpec);

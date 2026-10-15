@@ -2827,6 +2827,7 @@ paths:
                     maxCount: { type: integer, minimum: 0, maximum: 5, description: 0 switches attachments off. Default 3. }
                     maxBytes: { type: integer, minimum: 102400, maximum: 3670016, description: Per file. Default 3 MiB. }
                     maxTotalBytes: { type: integer, minimum: 102400, maximum: 3670016, description: Per request. Default 3.5 MiB. }
+                    maxPages: { type: integer, minimum: 1, maximum: 100, description: 'Per PDF. Default 30. Pages, not bytes, are what a PDF costs: a provider reads each one as text and as an image.' }
             example: { enabled: true, provider: compatible, model: qwen3.8-27b, caps: { perProfileDaily: 10, instanceDaily: 0 } }
       responses:
         '200':
@@ -3064,23 +3065,30 @@ components:
           example: { error: "the Coach is already thinking about your training", code: busy }
     CoachAttachmentRefused:
       description: |
-        An attachment was refused before the job was queued, so it cost no run. `code` is
-        `attachments` and `reason` says which check failed:
+        Either the body itself was refused, as on every route (`400 {"error":"invalid json"}`,
+        `413 {"error":"body too large"}` over 5 MiB), or an attachment was refused before the
+        job was queued, so it cost no run. Then `code` is `attachments` and `reason` says
+        which check failed:
 
         - `unsupported` (400): the provider cannot read files, or this job kind takes none.
         - `malformed` (400): not a list of `{ name, mediaType, data }`, or `data` is not base64.
         - `count` (400): more files than `attachments.maxCount`.
         - `type` (400): a media type off the list, or bytes that are not what the type says.
+        - `pages` (400): a PDF with more pages than `attachments.maxPages`, or one whose pages
+          could not be counted.
         - `size` (413): one file over `attachments.maxBytes`.
         - `total` (413): all files together over `attachments.maxTotalBytes`.
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              error: { type: string }
-              code: { type: string, enum: [attachments] }
-              reason: { type: string, enum: [unsupported, malformed, count, type, size, total] }
+            oneOf:
+              - type: object
+                required: [error, code, reason]
+                properties:
+                  error: { type: string }
+                  code: { type: string, enum: [attachments] }
+                  reason: { type: string, enum: [unsupported, malformed, count, type, pages, size, total] }
+              - $ref: '#/components/schemas/Error'
           example: { error: the Coach cannot take that attachment, code: attachments, reason: type }
     TooManyRequests:
       description: >-
@@ -3738,7 +3746,8 @@ components:
         maxCount: { type: integer }
         maxBytes: { type: integer, description: Per file, decoded. }
         maxTotalBytes: { type: integer, description: Per request, decoded. }
-      example: { types: [application/pdf, image/jpeg, image/png], maxCount: 3, maxBytes: 3145728, maxTotalBytes: 3670016 }
+        maxPages: { type: integer, description: Per PDF. }
+      example: { types: [application/pdf, image/jpeg, image/png], maxCount: 3, maxBytes: 3145728, maxTotalBytes: 3670016, maxPages: 30 }
 
     CoachStatus:
       type: object
@@ -3944,6 +3953,7 @@ components:
             maxCount: { type: integer }
             maxBytes: { type: integer }
             maxTotalBytes: { type: integer }
+            maxPages: { type: integer }
             supported: { type: boolean }
         community: { type: boolean }
         runtime:

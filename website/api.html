@@ -2180,7 +2180,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   </div>
   <div class="prow rrow">
     <span class="r-code s4">400</span>
-    <span class="p-desc">An attachment was refused before the job was queued, so it cost no run. <code>code</code> is <code>attachments</code> and <code>reason</code> says which check failed: - <code>unsupported</code> (400): the provider cannot read files, or this job kind takes none. - <code>malformed</code> (400): not a list of <code>{ name, mediaType, data }</code>, or <code>data</code> is not base64. - <code>count</code> (400): more files than <code>attachments.maxCount</code>. - <code>type</code> (400): a media type off the list, or bytes that are not what the type says. - <code>size</code> (413): one file over <code>attachments.maxBytes</code>. - <code>total</code> (413): all files together over <code>attachments.maxTotalBytes</code>.<span class="r-sig"><code>{&quot;error&quot;:&quot;the Coach cannot take that attachment&quot;}</code></span></span>
+    <span class="p-desc">Either the body itself was refused, as on every route (<code>400 {&quot;error&quot;:&quot;invalid json&quot;}</code>, <code>413 {&quot;error&quot;:&quot;body too large&quot;}</code> over 5 MiB), or an attachment was refused before the job was queued, so it cost no run. Then <code>code</code> is <code>attachments</code> and <code>reason</code> says which check failed: - <code>unsupported</code> (400): the provider cannot read files, or this job kind takes none. - <code>malformed</code> (400): not a list of <code>{ name, mediaType, data }</code>, or <code>data</code> is not base64. - <code>count</code> (400): more files than <code>attachments.maxCount</code>. - <code>type</code> (400): a media type off the list, or bytes that are not what the type says. - <code>pages</code> (400): a PDF with more pages than <code>attachments.maxPages</code>, or one whose pages could not be counted. - <code>size</code> (413): one file over <code>attachments.maxBytes</code>. - <code>total</code> (413): all files together over <code>attachments.maxTotalBytes</code>.<span class="r-sig"><code>{&quot;error&quot;:&quot;the Coach cannot take that attachment&quot;}</code></span></span>
   </div>
   <div class="prow rrow">
     <span class="r-code s4">401</span>
@@ -2196,7 +2196,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   </div>
   <div class="prow rrow">
     <span class="r-code s4">413</span>
-    <span class="p-desc">An attachment was refused before the job was queued, so it cost no run. <code>code</code> is <code>attachments</code> and <code>reason</code> says which check failed: - <code>unsupported</code> (400): the provider cannot read files, or this job kind takes none. - <code>malformed</code> (400): not a list of <code>{ name, mediaType, data }</code>, or <code>data</code> is not base64. - <code>count</code> (400): more files than <code>attachments.maxCount</code>. - <code>type</code> (400): a media type off the list, or bytes that are not what the type says. - <code>size</code> (413): one file over <code>attachments.maxBytes</code>. - <code>total</code> (413): all files together over <code>attachments.maxTotalBytes</code>.<span class="r-sig"><code>{&quot;error&quot;:&quot;the Coach cannot take that attachment&quot;}</code></span></span>
+    <span class="p-desc">Either the body itself was refused, as on every route (<code>400 {&quot;error&quot;:&quot;invalid json&quot;}</code>, <code>413 {&quot;error&quot;:&quot;body too large&quot;}</code> over 5 MiB), or an attachment was refused before the job was queued, so it cost no run. Then <code>code</code> is <code>attachments</code> and <code>reason</code> says which check failed: - <code>unsupported</code> (400): the provider cannot read files, or this job kind takes none. - <code>malformed</code> (400): not a list of <code>{ name, mediaType, data }</code>, or <code>data</code> is not base64. - <code>count</code> (400): more files than <code>attachments.maxCount</code>. - <code>type</code> (400): a media type off the list, or bytes that are not what the type says. - <code>pages</code> (400): a PDF with more pages than <code>attachments.maxPages</code>, or one whose pages could not be counted. - <code>size</code> (413): one file over <code>attachments.maxBytes</code>. - <code>total</code> (413): all files together over <code>attachments.maxTotalBytes</code>.<span class="r-sig"><code>{&quot;error&quot;:&quot;the Coach cannot take that attachment&quot;}</code></span></span>
   </div>
   <div class="prow rrow">
     <span class="r-code s4">429</span>
@@ -2996,6 +2996,11 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="p-name">attachments.maxTotalBytes</span>
     <span class="p-type">integer <span class="p-hint">(102400&ndash;3670016)</span></span>
     <span class="p-desc">Per request. Default 3.5 MiB.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.maxPages</span>
+    <span class="p-type">integer <span class="p-hint">(1&ndash;100)</span></span>
+    <span class="p-desc">Per PDF. Default 30. Pages, not bytes, are what a PDF costs: a provider reads each one as text and as an image.</span>
   </div>
 </div>
 <pre><code>{
@@ -4587,6 +4592,11 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="p-type">integer</span>
     <span class="p-desc">Per request</span>
   </div>
+  <div class="prow">
+    <span class="p-name">maxPages</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc">Per PDF.</span>
+  </div>
 </div>
   </div>
 </details>
@@ -5089,6 +5099,11 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   </div>
   <div class="prow">
     <span class="p-name">attachments.maxTotalBytes</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">attachments.maxPages</span>
     <span class="p-type">integer</span>
     <span class="p-desc"></span>
   </div>

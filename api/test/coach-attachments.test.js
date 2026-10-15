@@ -24,7 +24,20 @@ const { forcePrivilegeVerdict } = await import('../coach/adapters/spawn.js');
 
 forcePrivilegeVerdict({ ok: true, dropped: false, why: 'pinned by the test suite' });
 
-const PDF = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << >>\n%%EOF\n');
+import zlib from 'node:zlib';
+
+/** A PDF skeleton with `n` page objects, as plain objects or packed in a compressed object stream. */
+const pdfWith = (n, { packed = false } = {}) => {
+  const pages = Array.from({ length: n }, (_, i) => `${i + 3} 0 obj << /Type /Page /Parent 2 0 R >> endobj\n`).join('');
+  const head = '%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Count ' + n + ' >> endobj\n';
+  if (!packed) return Buffer.from(head + pages + 'trailer << >>\n%%EOF\n', 'latin1');
+  const body = zlib.deflateSync(Buffer.from(pages, 'latin1'));
+  return Buffer.concat([
+    Buffer.from(head + `9 0 obj << /Type /ObjStm /N ${n} /First 0 /Filter /FlateDecode /Length ${body.length} >>\nstream\n`, 'latin1'),
+    body, Buffer.from('\nendstream endobj\ntrailer << >>\n%%EOF\n', 'latin1')
+  ]);
+};
+const PDF = pdfWith(2);
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(24)]);
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(20)]);
 const b64 = buf => buf.toString('base64');
@@ -64,8 +77,11 @@ test('each way a file can be wrong is refused with its own reason, before anythi
   assert.equal(reason([file('x.gif', 'image/gif', PNG)]), 'type', 'not on the whitelist');
   assert.equal(reason([file('x.pdf', 'application/pdf', PNG)]), 'type', 'a PNG claiming to be a PDF');
   assert.equal(reason([file('x.png', 'image/png', Buffer.from('<html>'))]), 'type');
+  assert.equal(reason([file('x.pdf', 'application/pdf', pdfWith(31))]), 'pages', 'over the default 30 pages');
+  assert.equal(reason([file('x.pdf', 'application/pdf', Buffer.from('%PDF-1.4\n%%EOF\n'))]), 'pages', 'no page to count is a refusal, not a free pass');
   assert.equal(reason(Array(4).fill(file('p.pdf', 'application/pdf', PDF))), 'count');
   const small = { ...ALL, maxBytes: 200 * 1024, maxTotalBytes: 300 * 1024 };
+  assert.equal(att.checkAttachments([file('x.pdf', 'application/pdf', pdfWith(31))], small).status, 400);
   const big = Buffer.concat([PDF, Buffer.alloc(250 * 1024)]);
   const r = att.checkAttachments([file('big.pdf', 'application/pdf', big)], small);
   assert.equal(r.reason, 'size'); assert.equal(r.status, 413);
@@ -79,6 +95,19 @@ test('a name is a label: path parts and control characters are dropped, and a mi
   assert.equal(att.cleanName('a\u0000b\nc.pdf', 0), 'abc.pdf');
   assert.equal(att.cleanName('', 2), 'attachment-3');
   assert.equal(att.cleanName('x'.repeat(300), 0).length, 120);
+  assert.equal(att.cleanName('plan\u202Efdp.exe', 0), 'planfdp.exe', 'a right-to-left override cannot dress an .exe up as a .pdf');
+  assert.equal(att.cleanName('pl\u200Ban\uFEFF.pdf\u2066', 0), 'plan.pdf', 'zero-width and isolate characters are gone');
+  assert.equal(att.cleanName('\u200B\u200F', 1), 'attachment-2');
+});
+
+test('pages are counted on page objects, never the page tree, and inside compressed object streams too', () => {
+  assert.equal(att.countPdfPages(pdfWith(1)), 1);
+  assert.equal(att.countPdfPages(pdfWith(12)), 12, '/Type /Pages is not a page');
+  assert.equal(att.countPdfPages(pdfWith(7, { packed: true })), 7);
+  assert.equal(att.countPdfPages(Buffer.from('%PDF-1.4 /Type/Page /Type /PageLabel')), 1);
+  const cap = { ...ALL, maxPages: 5 };
+  assert.equal(att.checkAttachments([file('a.pdf', 'application/pdf', pdfWith(5, { packed: true }))], cap).ok, true);
+  assert.equal(att.checkAttachments([file('a.pdf', 'application/pdf', pdfWith(6, { packed: true }))], cap).reason, 'pages');
 });
 
 test('limits are clamped to what one request body can carry, and 0 files switches the feature off', () => {
@@ -107,7 +136,11 @@ test('Anthropic gets document and image blocks ahead of the text; without files 
   const body = anthropicSpec.body({ model: 'm', prompt: 'P', system: 'S', maxTokens: 10, attachments: sent });
   const c = body.messages[0].content;
   assert.deepEqual(c[0], { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64(PDF) }, title: 'plan.pdf' });
-  assert.deepEqual(c[1], { type: 'image', source: { type: 'base64', media_type: 'image/png', data: b64(PNG) } });
+  // The last file closes the cached prefix (system + files), so the repair round reads them from
+  // the cache. Two breakpoints in all, within Anthropic's four.
+  assert.deepEqual(c[1], { type: 'image', source: { type: 'base64', media_type: 'image/png', data: b64(PNG) }, cache_control: { type: 'ephemeral' } });
+  const marks = JSON.stringify(body).match(/cache_control/g).length;
+  assert.equal(marks, 2);
   assert.deepEqual(c[2], { type: 'text', text: 'P' });
   assert.equal(anthropicSpec.body({ model: 'm', prompt: 'P', system: 'S', maxTokens: 10, attachments: [] }).messages[0].content, 'P');
 });
@@ -144,6 +177,17 @@ test('the Agent SDK gets the files as content blocks on a user message, and keep
   assert.deepEqual(msgs[0].message.content.map(b => b.type), ['document', 'image', 'text']);
 });
 
+test('the repair round sends the files again, the same ones', async () => {
+  const { runPipeline } = await import('../coach/core/pipeline.js');
+  const calls = [];
+  const adapter = { spawns: false, invoke: async o => { calls.push(o.attachments); return { code: 0, text: 'not json at all' }; } };
+  const files = [...sent];
+  const r = await runPipeline({ adapter, cfg: {}, kind: 'create', payload: { library: [] }, timeoutMs: 1000, invokeOpts: { attachments: files } });
+  assert.equal(r.ok, false);
+  assert.equal(calls.length, 2, 'one attempt and one repair round');
+  assert.deepEqual(calls[1], sent);
+});
+
 /* ------------------------------ through the queue ------------------------------ */
 
 test('a refine with a PDF reaches the provider as a file, and nothing of it is left behind', async () => {
@@ -168,6 +212,35 @@ test('a refine with a PDF reaches the provider as a file, and nothing of it is l
   assert.ok(!JSON.stringify(cfg.load().log).includes('trainer plan'), 'the instance log names no file');
   const tmpAfter = fs.readdirSync(os.tmpdir()).filter(f => f.startsWith('coach-'));
   assert.deepEqual(tmpAfter.filter(f => !tmpBefore.includes(f)), [], 'the job directory is removed');
+  assert.equal(jobs.heldAttachmentBytes(), 0, 'and the process holds no bytes once the job is done');
+});
+
+test('a job that ends before the provider is called lets go of its files as well', async () => {
+  fresh();
+  const uid = 'u-attach-nostate';
+  // Two jobs take both slots, so this one waits in the queue, and its state is gone by the time
+  // it runs: it returns before a provider is called.
+  for (const other of ['u-attach-busy1', 'u-attach-busy2']) { writeState(DIR, other, sampleState()); jobs.enqueue(other, { kind: 'review' }); }
+  writeState(DIR, uid, sampleState());
+  jobs.enqueue(uid, { kind: 'create', refine: 'x', attachments: [file('p.pdf', 'application/pdf', PDF)] });
+  assert.equal(jobs.status(uid).job.state, 'queued');
+  fs.unlinkSync(path.join(DIR, `state-${uid}.json`));
+  await settle(uid);
+  await settle('u-attach-busy1'); await settle('u-attach-busy2');
+  assert.equal(jobs.readUser(uid).history.at(-1).errorClass, 'nostate');
+  assert.equal(jobs.heldAttachmentBytes(), 0);
+});
+
+test('forgetting a profile mid-job lets go of its files at once', async () => {
+  fresh();
+  const uid = 'u-attach-forget';
+  writeState(DIR, uid, sampleState());
+  jobs.enqueue(uid, { kind: 'create', refine: 'x', attachments: [file('p.pdf', 'application/pdf', PDF)] });
+  assert.equal(jobs.heldAttachmentBytes(), PDF.length);
+  jobs.clearUser(uid);
+  assert.equal(jobs.heldAttachmentBytes(), 0);
+  await new Promise(r => setTimeout(r, 400));
+  assert.equal(jobs.readUser(uid).pending, null, 'and the forgotten job writes nothing back');
 });
 
 test('a refused attachment costs no run, and only a plan request takes one', () => {
@@ -203,6 +276,7 @@ test('status tells the client what it may attach; the plan route refuses with a 
   const call = harness(uid);
   const st = await call('GET /api/coach/status');
   assert.deepEqual(st.body.attachments, { types: ['application/pdf', 'image/jpeg', 'image/png'], ...att.ATTACHMENT_DEFAULTS });
+  assert.equal(st.body.attachments.maxPages, 30);
 
   const bad = await call('POST /api/coach/plan', { refine: 'x', attachments: [file('x.png', 'image/png', PDF)] });
   assert.equal(bad.status, 400);
@@ -217,13 +291,14 @@ test('status tells the client what it may attach; the plan route refuses with a 
 test('the admin sets the limits within the ceilings, and the card says whether the provider can read files', async () => {
   fresh();
   const call = harness('admin-1');
-  let r = await call('POST /api/admin/coach/config', { attachments: { maxCount: 1, maxBytes: 1024 * 1024, maxTotalBytes: 2 * 1024 * 1024 } });
+  let r = await call('POST /api/admin/coach/config', { attachments: { maxCount: 1, maxBytes: 1024 * 1024, maxTotalBytes: 2 * 1024 * 1024, maxPages: 10 } });
   assert.equal(r.status, 200);
   r = await call('GET /api/admin/coach');
-  assert.deepEqual(r.body.attachments, { maxCount: 1, maxBytes: 1024 * 1024, maxTotalBytes: 2 * 1024 * 1024, supported: true });
-  await call('POST /api/admin/coach/config', { attachments: { maxCount: 50, maxBytes: 1e12 } });
+  assert.deepEqual(r.body.attachments, { maxCount: 1, maxBytes: 1024 * 1024, maxTotalBytes: 2 * 1024 * 1024, maxPages: 10, supported: true });
+  await call('POST /api/admin/coach/config', { attachments: { maxCount: 50, maxBytes: 1e12, maxPages: 5000 } });
   r = await call('GET /api/admin/coach');
   assert.equal(r.body.attachments.maxCount, att.MAX_COUNT_CEILING);
+  assert.equal(r.body.attachments.maxPages, att.MAX_PAGES_CEILING);
   assert.equal(r.body.attachments.maxBytes, 2 * 1024 * 1024, 'a file is never allowed to be bigger than the whole request');
   assert.equal((await call('POST /api/admin/coach/config', { attachments: 'lots' })).status, 400);
   await call('POST /api/admin/coach/config', { provider: 'codex' });

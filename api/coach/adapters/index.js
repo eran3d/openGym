@@ -15,7 +15,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { run } from './spawn.js';
+import { run, unprivilegedIds } from './spawn.js';
 import { extFor } from '../attachments.js';
 import claude from './claude.js';
 import codex from './codex.js';
@@ -41,9 +41,19 @@ const fixture = {
   async check() { return { ok: true, version: 'fixture' }; },
   async invoke({ prompt, jobDir, env, timeoutMs, attachments }) {
     if (attachments && attachments.length && jobDir) {
+      // Owned by the unprivileged user where there is one, like everything else in a job
+      // directory: removeJobDir has that user clear the contents, and a root-owned 0700 directory
+      // in there is one it could not. Recursive and overwriting, because the repair round calls
+      // this a second time for the same job.
+      const ids = unprivilegedIds();
       const dir = path.join(jobDir, 'attachments');
-      fs.mkdirSync(dir, { mode: 0o700 });
-      attachments.forEach((a, i) => fs.writeFileSync(path.join(dir, `${i + 1}.${extFor(a.mediaType)}`), Buffer.from(a.data, 'base64'), { mode: 0o600 }));
+      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+      if (ids) fs.chownSync(dir, ids.uid, ids.gid);
+      attachments.forEach((a, i) => {
+        const file = path.join(dir, `${i + 1}.${extFor(a.mediaType)}`);
+        fs.writeFileSync(file, Buffer.from(a.data, 'base64'), { mode: 0o600 });
+        if (ids) fs.chownSync(file, ids.uid, ids.gid);
+      });
     }
     const r = await run(process.execPath, [FIXTURE], {
       stdin: prompt, cwd: jobDir, timeoutMs,

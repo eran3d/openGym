@@ -204,8 +204,11 @@ files for them as well.
 
 The admin sets the limits on the AI Coach card (**Advanced**): files per message (default 3,
 0 switches attachments off), size per file (default 3 MB) and per request (default and maximum
-3.5 MB, which is what still fits the 5 MB request body once base64 has added its third). A file
-must be what its type says: a PDF has to start like one. A message with files is one run against
+3.5 MB, which is what still fits the 5 MB request body once base64 has added its third), and
+pages per PDF (default 30, at most 100). The page limit is the one that bounds the cost: a
+provider reads every page as text and as an image, so a small scan of many pages costs more than
+a large photo. A file must be what its type says: a PDF has to start like one, and one whose
+pages cannot be counted is refused. A message with files is one run against
 the daily caps like any other. The file is sent to the provider with that one job and the repair
 round, held in memory only, and never stored: not in your synced state, not in the Coach's
 records, not in the job log. The chat keeps the file's name.

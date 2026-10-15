@@ -77,7 +77,9 @@ export function clearUser(uid) {
   try { fs.unlinkSync(userFile(uid)); } catch { /* nothing to clear */ }
   if (daily?.date === todayISO()) writeUser(uid, { ...EMPTY, daily });
   const queued = queue.findIndex(j => j.uid === uid);
-  if (queued >= 0) { queue.splice(queued, 1); inflight.delete(uid); }
+  if (queued >= 0) { live.delete(queue[queued]); dropAttachments(queue[queued]); queue.splice(queued, 1); inflight.delete(uid); }
+  // A job already running keeps going until its provider call ends, but not with the files.
+  for (const j of live) if (j.uid === uid) dropAttachments(j);
   aborts.get(uid)?.abort();
   forgetSeq.set(uid, (forgetSeq.get(uid) || 0) + 1);
   invalidateCohort();
@@ -172,6 +174,15 @@ let running = 0;
 const inflight = new Set();     // uids with a job queued or running (FR-07 single-flight)
 const forgetSeq = new Map();    // uid → bumped by every clearUser; a job carries the value it saw at enqueue
 const aborts = new Map();       // uid → AbortController of the provider call in flight, for clearUser to pull
+const live = new Set();         // every job queued or running, so attached bytes can be let go from anywhere
+
+/* Let go of a job's attached files. Emptied in place: the pipeline holds the same array for the
+   repair round, so a job forgotten between its two attempts sends nothing the second time. */
+function dropAttachments(job) {
+  if (job && Array.isArray(job.attachments)) job.attachments.length = 0;
+}
+/** Test seam: the attached bytes this process still holds, across every queued or running job. */
+export const heldAttachmentBytes = () => [...live].reduce((n, j) => n + (j.attachments || []).reduce((m, a) => m + (a.size || 0), 0), 0);
 
 class CoachError extends Error {
   constructor(code, message, extra) { super(message); this.code = code; Object.assign(this, extra); }
@@ -269,6 +280,7 @@ export function enqueue(uid, opts) {
     startedAt: Date.now()
   };
   inflight.add(uid);
+  live.add(job);
   patchUser(uid, { current: { id: job.id, kind: job.kind, state: 'queued', startedAt: job.startedAt } });
   queue.push(job);
   pump();
@@ -281,7 +293,7 @@ function pump() {
     running++;
     execute(job)
       .catch(e => { console.error('coach job crashed', job.id, e); finish(job, { outcome: 'failed', errorClass: 'internal' }); })
-      .finally(() => { running--; inflight.delete(job.uid); pump(); });
+      .finally(() => { running--; inflight.delete(job.uid); dropAttachments(job); live.delete(job); pump(); });
   }
 }
 
@@ -295,6 +307,9 @@ export function whyUnusable(errors) {
 }
 
 function finish(job, result) {
+  // Every way out of a job comes through here (or through the crash handler, which calls it),
+  // including the early returns before a provider is ever called.
+  dropAttachments(job);
   cfgStore.logJob({
     at: new Date().toISOString(), uid: job.uid, kind: job.kind, trigger: job.trigger,
     outcome: result.outcome, errorClass: result.errorClass || null,
@@ -414,7 +429,7 @@ async function execute(job) {
     return finish(job, { outcome: 'ready', pending });
   } finally {
     aborts.delete(job.uid);
-    job.attachments = [];
+    dropAttachments(job);
     if (jobDir) removeJobDir(jobDir, unprivilegedIds());
   }
 }

@@ -11,7 +11,7 @@ import { adapterFor } from './adapters/index.js';
 import { canDropPrivileges } from './adapters/spawn.js';
 import { DATA_CATEGORIES } from './core/payload.js';
 import { validateBaseUrl, validateHeaders, baseUrlFor } from './core/providers.js';
-import { limitsOf as attachmentLimits, MAX_BYTES_FLOOR, MAX_TOTAL_BYTES_CEILING, MAX_COUNT_CEILING } from './attachments.js';
+import { limitsOf as attachmentLimits, MAX_BYTES_FLOOR, MAX_TOTAL_BYTES_CEILING, MAX_COUNT_CEILING, MAX_PAGES_CEILING } from './attachments.js';
 
 // Job failures the user sees, in the app's own voice. The raw provider detail never reaches
 // them — it goes to the admin card, which is where someone can act on it (FR-47).
@@ -281,7 +281,8 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
         patch.attachments = {
           maxCount: Math.max(0, Math.min(MAX_COUNT_CEILING, num(a.maxCount, cur.maxCount))),
           maxBytes: Math.max(MAX_BYTES_FLOOR, Math.min(maxTotalBytes, num(a.maxBytes, cur.maxBytes))),
-          maxTotalBytes
+          maxTotalBytes,
+          maxPages: Math.max(1, Math.min(MAX_PAGES_CEILING, num(a.maxPages, cur.maxPages)))
         };
       }
       cfgStore.save(patch);

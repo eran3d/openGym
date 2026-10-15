@@ -5,7 +5,7 @@ spreadsheet, a photo of a sheet on the gym wall. Today the only way to hand that
 to retype it into a chat message capped at `maxMessageLen`. This note describes letting the
 person attach the file to a plan request, and having the provider's model read it directly.
 
-It is a design note for one change, not a description of something already built.
+It describes the change on the `feature/coach-attachments` branch.
 
 ## 1. What the API takes
 
@@ -39,6 +39,7 @@ Checked in `jobs.enqueue`, before the daily cap is bumped, so a refused file cos
 | Bytes per file | 3 MiB | admin, 0.1 to 3.5 MiB |
 | Bytes per request | 3.5 MiB | admin, up to 3.5 MiB |
 | Files per request | 3 | admin, 0 to 5 (0 switches the feature off) |
+| Pages per PDF | 30 | admin, 1 to 100 (Anthropic's own ceiling per request) |
 
 The 3.5 MiB ceiling is not taste: base64 adds a third, and `MAX_BODY` (and nginx's
 `client_max_body_size`) is 5 MiB for every API route. 3.5 MiB of file is 4.7 MiB on the wire,
@@ -49,19 +50,26 @@ The declared `mediaType` must match the file's first bytes (`%PDF-`, the JPEG SO
 PNG signature). A file that claims to be a PDF and is not is refused with the same class as a
 wrong type; nothing downstream has to wonder what it is holding.
 
+Bytes are no measure of what a PDF costs. Providers read every page as text and as an image, so
+a 400 KB scan of 80 pages costs far more than a 3 MB photo. Pages are the limit that bounds the
+bill. They are counted roughly, without a PDF parser: page objects (`/Type /Page`, never the
+`/Type /Pages` tree), and when the plain file shows none, the same inside its compressed object
+streams (inflated with `node:zlib`, bounded at 16 MiB). A PDF whose pages cannot be counted is
+refused rather than waved through.
+
 A job with attachments is one job: it counts once against `perProfileDaily` and
-`instanceDaily`, like any other. The provider bills it for more input, which is what the admin's
-per-file and per-request limits are for.
+`instanceDaily`, like any other. The provider bills it for more input, which is what the page
+and size limits are for.
 
 A refusal is a 400 (413 for size) with `code: "attachments"` and a `reason` the client can
-translate: `unsupported`, `count`, `type`, `size`, `total`, `malformed`.
+translate: `unsupported`, `malformed`, `count`, `type`, `pages`, `size`, `total`.
 
 ## 3. What the client is told
 
 `GET /api/coach/status` gains:
 
 ```json
-"attachments": { "types": ["application/pdf", "image/jpeg", "image/png"], "maxCount": 3, "maxBytes": 3145728, "maxTotalBytes": 3670016 }
+"attachments": { "types": ["application/pdf", "image/jpeg", "image/png"], "maxCount": 3, "maxBytes": 3145728, "maxTotalBytes": 3670016, "maxPages": 30 }
 ```
 
 or `null` when the configured provider cannot read files, or the admin set the count to 0. The
@@ -90,6 +98,21 @@ granted quietly. The SDK takes an `AsyncIterable<SDKUserMessage>` as its prompt,
 message carries content blocks, so the file goes in the message and the lockdown stays exactly
 as it is.
 
+### The repair round, and what it costs
+
+The repair round sends the attachments again: a model asked to fix its plan has to see what the
+plan was supposed to say. What that second read costs depends on the provider:
+
+- **Anthropic** marks the last file block `cache_control: ephemeral`. The system block and the
+  files are then one cached prefix (two of the four breakpoints), and the repair round reads the
+  files from the cache at a tenth of the input price.
+- **OpenAI** caches a repeated prompt prefix of 1024 tokens or more on its own. The system
+  message and the file parts come first and are identical on the second call, so they are
+  eligible for that discount without anything to mark (not verified against a live account).
+- **Gemini** caches repeated prefixes implicitly on its 2.5 models; there is nothing to ask for
+  per request, and explicit context caching is a separate API this adapter does not use.
+- **Claude Agent SDK** gets plain blocks. The SDK manages its own caching.
+
 ## 5. Privacy
 
 - Attachments live in the in-memory job object only. They are never written to `state-<uid>.json`,
@@ -97,14 +120,13 @@ as it is.
   file name, not the file.
 - Where a provider needs a file on disk (the fixture), it is written into the job's `mkdtemp`
   directory, which is removed in the same `finally` that already removes it.
-- The job drops its reference to the bytes when it finishes, and `forget` drops a queued job's
-  bytes with the job.
+- The bytes are let go of on every way out of a job (`finish`, the crash handler and the queue's
+  own `finally`), including the early returns before a provider is called. The list is emptied
+  in place, so a job forgotten between its attempt and its repair round sends nothing the second
+  time. `forget` empties a queued or running job's list at once.
 - Nothing in an error detail or log line names or quotes a file.
 - A restart loses a queued job's attachments, which is fine: the job is reported as interrupted,
   as it is today.
-
-The repair round sends the attachments again. A model asked to fix its plan has to be able to
-see what the plan was supposed to say.
 
 ## 6. Prompt
 
@@ -118,5 +140,9 @@ equipment and limitations still win.
 The Coach chat composer gets a paperclip button when status allows it. Picked files show as
 chips above the text field and can be removed. A message with attachments always goes out as a
 plan request (`refine`), because that is the only job that reads them; an empty text field gets
-a default line. The demo and the phone's own-key mode report no attachment support, so the
-button never appears there.
+a default line. A finished plan takes the place of whatever is pending, so when review
+suggestions are waiting the app asks before sending. If the server stops taking files (the
+admin switched provider), picked files are dropped with a line saying so. The demo and the
+phone's own-key mode report no attachment support, so the button never appears there.
+
+The intake screen has no paperclip yet; the API takes attachments with `intake` too.
